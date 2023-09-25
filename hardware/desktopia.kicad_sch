@@ -1,0 +1,54 @@
+(kicad_sch (version 20230121) (generator eeschema)
+
+  (uuid 13d6a049-bc80-428a-a714-ab409fbf3848)
+
+  (paper "A4")
+
+  (title_block
+    (title "Desktopia - motherboard")
+    (date "2023-09-25")
+    (company "Thomas LE NINIVEN")
+  )
+
+  (lib_symbols
+  )
+
+
+  (sheet (at 199.39 67.31) (size 74.93 29.21) (fields_autoplaced)
+    (stroke (width 0.1524) (type solid))
+    (fill (color 0 0 0 0.0000))
+    (uuid ede83404-2a2e-4dc2-b02f-9ceead2315ff)
+    (property "Sheetname" "Motor-driver" (at 199.39 66.5984 0)
+      (effects (font (size 1.27 1.27)) (justify left bottom))
+    )
+    (property "Sheetfile" "motor-driver.kicad_sch" (at 199.39 97.1046 0)
+      (effects (font (size 1.27 1.27)) (justify left top))
+    )
+    (instances
+      (project "desktopia"
+        (path "/13d6a049-bc80-428a-a714-ab409fbf3848" (page "3"))
+      )
+    )
+  )
+
+  (sheet (at 199.39 26.67) (size 74.93 31.75) (fields_autoplaced)
+    (stroke (width 0.1524) (type solid))
+    (fill (color 0 0 0 0.0000))
+    (uuid fcd5f692-f2d7-4a66-ad9e-b700485013fd)
+    (property "Sheetname" "laser-meter" (at 199.39 25.9584 0)
+      (effects (font (size 1.27 1.27)) (justify left bottom))
+    )
+    (property "Sheetfile" "laser-meter.kicad_sch" (at 199.39 59.0046 0)
+      (effects (font (size 1.27 1.27)) (justify left top))
+    )
+    (instances
+      (project "desktopia"
+        (path "/13d6a049-bc80-428a-a714-ab409fbf3848" (page "2"))
+      )
+    )
+  )
+
+  (sheet_instances
+    (path "/" (page "1"))
+  )
+)

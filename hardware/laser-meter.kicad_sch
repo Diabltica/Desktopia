@@ -1,0 +1,16 @@
+(kicad_sch (version 20230121) (generator eeschema)
+
+  (uuid fad0c76d-575f-4fd7-a577-51ec47a62c54)
+
+  (paper "A4")
+
+  (title_block
+    (title "Desktopia - Laser Meter")
+    (date "2023-09-25")
+    (company "Thomas LE NINIVEN")
+  )
+
+  (lib_symbols
+  )
+
+)
