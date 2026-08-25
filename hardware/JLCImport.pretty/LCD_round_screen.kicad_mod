@@ -1,0 +1,220 @@
+(footprint "LCD_round_screen"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(property "Reference" "REF**"
+		(at 0 -13.668 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(uuid "329d87a5-0b2e-494d-ada1-550554c618c4")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+		)
+	)
+	(property "Value" "LCD_round_screen"
+		(at 0 -12.168 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(uuid "593a29ba-48c1-4a36-928f-d51320dba7bc")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "93eff463-2d9c-4334-94cc-ad8c1879ea70")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "b507ae2e-d228-4ed0-ab0c-eb6e5c5e7423")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr smd)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_line
+		(start -11.46 26.488)
+		(end -11.46 15.154814)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "F.SilkS")
+		(uuid "ae9a0dae-fe98-45a9-b321-802bbab8e52a")
+	)
+	(fp_line
+		(start -11.46 26.488)
+		(end 11.46 26.488)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "F.SilkS")
+		(uuid "fc1c6cd1-ed5a-4025-be31-3c5faf73f031")
+	)
+	(fp_line
+		(start 11.46 15.168)
+		(end 11.46 26.488)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "F.SilkS")
+		(uuid "0c129ad1-195e-4dbb-be0e-eeb0a0449c22")
+	)
+	(fp_circle
+		(center 0 0)
+		(end 16.2 0)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(fill no)
+		(layer "F.SilkS")
+		(uuid "e0a0b992-ba41-4337-be25-ab85152e50b0")
+	)
+	(fp_circle
+		(center 0 0)
+		(end 19 0)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(fill no)
+		(layer "F.SilkS")
+		(uuid "259b8158-49f9-43fc-93b5-0c4d2c39fce7")
+	)
+	(fp_circle
+		(center -9.63 20.658)
+		(end -8.63 20.658)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(fill no)
+		(layer "Edge.Cuts")
+		(uuid "22f7fc2f-b53c-4bb0-8a92-7b008cf144c8")
+	)
+	(fp_circle
+		(center 9.63 20.658)
+		(end 10.63 20.658)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(fill no)
+		(layer "Edge.Cuts")
+		(uuid "0ec291ea-7ca9-4eaf-9119-888b96863007")
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0 -10.668 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(uuid "83f1ce5f-09b9-4cdc-91fc-08452e0828ce")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(pad "1" thru_hole rect
+		(at -7.62 24.728 90)
+		(size 1.7 1.7)
+		(drill 1)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "467d38be-f9f1-4ef0-80d8-37f6e31c42c4")
+	)
+	(pad "2" thru_hole circle
+		(at -5.08 24.728 90)
+		(size 1.7 1.7)
+		(drill 1)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "eefa6314-0b94-4364-9420-566eb51ec4c8")
+	)
+	(pad "3" thru_hole circle
+		(at -2.54 24.728 90)
+		(size 1.7 1.7)
+		(drill 1)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "1126e494-573c-49a5-8e87-f043cfad6e74")
+	)
+	(pad "4" thru_hole circle
+		(at 0 24.728 90)
+		(size 1.7 1.7)
+		(drill 1)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "46923575-ae2d-4757-82d1-78133c2584c3")
+	)
+	(pad "5" thru_hole circle
+		(at 2.54 24.728 90)
+		(size 1.7 1.7)
+		(drill 1)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "3a66570c-1318-4eb7-b2b8-5cf25979df39")
+	)
+	(pad "6" thru_hole circle
+		(at 5.08 24.728 90)
+		(size 1.7 1.7)
+		(drill 1)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "3a25ce02-817f-4a58-9263-52e6808a8acd")
+	)
+	(pad "7" thru_hole circle
+		(at 7.62 24.728 90)
+		(size 1.7 1.7)
+		(drill 1)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "3f85bf45-47d2-4f41-89f7-ce2b01b3dcfd")
+	)
+	(group ""
+		(uuid "87c3caab-723f-41f0-9471-26adfd8400f8")
+		(members "1126e494-573c-49a5-8e87-f043cfad6e74" "3a25ce02-817f-4a58-9263-52e6808a8acd"
+			"3a66570c-1318-4eb7-b2b8-5cf25979df39" "3f85bf45-47d2-4f41-89f7-ce2b01b3dcfd"
+			"467d38be-f9f1-4ef0-80d8-37f6e31c42c4" "46923575-ae2d-4757-82d1-78133c2584c3"
+			"eefa6314-0b94-4364-9420-566eb51ec4c8"
+		)
+	)
+	(embedded_fonts no)
+	(model "${KIPRJMOD}/JLCImport.3dshapes/RoundLCD.step"
+		(offset
+			(xyz 0 0 2.5)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz -0 -0 -0)
+		)
+	)
+)
