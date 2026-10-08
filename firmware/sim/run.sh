@@ -1,7 +1,7 @@
 #!/bin/bash
-# Banc de simulation sur PC (Linux / WSL, g++). Compile les sources RÉELLES de ../src contre des mocks
-# (cœur Arduino, registres AVR, TCA9554, VL53L1CB bruité, bureau simulé, écran GC9A01 émulé) et déroule les scénarios.
-# Les captures d'écran émulées sont écrites en PPM dans sim/shots/.
+# PC simulation bench (Linux / WSL, g++). Compiles the REAL sources from ../src against mocks
+# (Arduino core, AVR registers, TCA9554, noisy VL53L1CB, simulated desk, emulated GC9A01 screen) and runs the scenarios.
+# The emulated screenshots are written as PPM to sim/shots/.
 set -e
 cd "$(dirname "$0")"
 mkdir -p shots
