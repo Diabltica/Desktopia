@@ -6,7 +6,12 @@ static_assert(HEIGHT_MIN_MM < HEIGHT_MAX_MM, "HEIGHT_MIN_MM must be below HEIGHT
 static_assert(PRESET_SHORT_PRESS_MAX_MS < PRESET_LONG_PRESS_MS, "long press must be longer than the short press window");
 static_assert(PRESET_COUNT >= 1 && PRESET_COUNT <= 3, "three preset buttons are wired");
 
+#if TOF_BYPASS
+#warning "TOF_BYPASS=1: height sensor ignored, no end stops - bench test only, motor decoupled from the desk"
+#endif
+
 namespace {
+constexpr bool kTofBypass = TOF_BYPASS != 0;
 constexpr uint16_t kMaxPermille = MOTOR_PWM_MAX_PERCENT * 10;
 constexpr uint16_t kMinPermille = MOTOR_PWM_MIN_PERCENT * 10;
 constexpr uint32_t kRecoverPeriodMs = 500;
@@ -132,6 +137,13 @@ void DeskController::beginMove(uint32_t nowMs) {
 }
 
 void DeskController::startManual(Button b, uint32_t nowMs) {
+  if (kTofBypass) {                                                            // bench test: no height, no end stops
+    _holdButton = b;
+    _dir = (b == Button::Up) ? Motor::Direction::Up : Motor::Direction::Down;
+    beginMove(nowMs);
+    _state = State::Manual;
+    return;
+  }
   if (!_tof.hasFreshHeight(nowMs)) {
     _buttons.consume(b);
     showNotice(F("NO SENSOR"), F("height unknown"), nowMs);
@@ -170,6 +182,14 @@ void DeskController::updateManual(uint32_t nowMs) {
     _stateSince = nowMs;
     return;
   }
+  if (kTofBypass) {                                                            // bench test: only the move timeout remains
+    if ((uint32_t)(nowMs - _moveStart) > MOVE_TIMEOUT_MS) {
+      enterFault(FaultCode::Timeout, nowMs);
+      return;
+    }
+    _motor.run(_dir, kMaxPermille);
+    return;
+  }
   if (!_tof.hasFreshHeight(nowMs)) {
     enterFault(FaultCode::Sensor, nowMs);
     return;
@@ -192,6 +212,10 @@ void DeskController::updateManual(uint32_t nowMs) {
 //  Automatic movement to a preset
 // ---------------------------------------------------------------------------------------------
 void DeskController::startGoto(uint8_t presetIndex, uint32_t nowMs) {
+  if (kTofBypass) {
+    showNotice(F("BYPASS"), F("presets off"), nowMs);
+    return;
+  }
   if (!_presets.isSet(presetIndex)) {
     showNotice(F("NO PRESET"), F("hold to save"), nowMs);
     return;
@@ -268,6 +292,11 @@ bool DeskController::monitorMove(int16_t heightMm, uint32_t nowMs) {
 //  Saving a preset (long press)
 // ---------------------------------------------------------------------------------------------
 void DeskController::startSaving(Button b, uint32_t nowMs) {
+  if (kTofBypass) {
+    _buttons.consume(b);
+    showNotice(F("BYPASS"), F("presets off"), nowMs);
+    return;
+  }
   if (!_tof.hasFreshHeight(nowMs)) {
     _buttons.consume(b);
     showNotice(F("NO SENSOR"), F("height unknown"), nowMs);

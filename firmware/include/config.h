@@ -69,6 +69,13 @@
 #ifndef TOF_RETRY_PERIOD_MS
 #define TOF_RETRY_PERIOD_MS        1000   // re-init attempts while offline (only when the motor is stopped)
 #endif
+// BENCH TEST ONLY – motor decoupled from the desk. 1 = the height is ignored for motor control:
+// Up/Down run the motor at MOTOR_PWM_MAX_PERCENT as long as they are held, with no end stops,
+// no sensor / stall / wrong-way checks (MOVE_TIMEOUT_MS still applies). Presets are disabled.
+// The ToF keeps running and its reading is still displayed when it is connected.
+#ifndef TOF_BYPASS
+#define TOF_BYPASS                 0
+#endif
 
 /* ---------------------------------------------------------------------------
  *  Travel limits and motion profile (all heights in mm, as read by the ToF)

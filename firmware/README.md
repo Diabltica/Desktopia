@@ -63,6 +63,7 @@ Default mapping: SW1 = Up, SW2 = Down, SW3-SW5 = Preset 1-3 (`BTN_BIT_*` in `con
 pio run                                   # build (env desktopia)
 pio run -t upload                         # USB, Caterina bootloader (double-press RESET if the port does not show up)
 pio run -e desktopia_debug -t upload      # same + logs on the USB serial port (115200 baud, TX only)
+pio run -e desktopia_motor_test -t upload # motor bench test, height sensor bypassed (see below)
 pio device monitor
 pio run -e desktopia_isp -t bootloader    # blank chip: burns bootloader + fuses via J2 (USBasp)
 ```
@@ -86,6 +87,29 @@ Size: ≈ 23.3 KB of flash (≈ 81 % of the 28 KB available next to the bootload
 | `HEIGHT_MIN_MM` / `HEIGHT_MAX_MM` | 700 / 1200 | software end stops: **must be set inside the real travel** |
 | `PRESET_SHORT_PRESS_MAX_MS` / `PRESET_LONG_PRESS_MS` | 400 / 2000 | press thresholds |
 | `DISPLAY_ROTATION` | 1 | screen orientation (0-3) |
+| `TOF_BYPASS` | 0 | 1 = height sensor ignored for motor control, **bench test only** (see below) |
+
+## Motor bench test without the sensor (`TOF_BYPASS`)
+
+To test the motor commands (DIR, PWM, ramps) **without the mechanism coupled to the desk** and without needing a
+working distance sensor, build with `-DTOF_BYPASS=1`. A ready-made environment does it, with the PWM limited to 25 %:
+
+```bash
+pio run -e desktopia_motor_test -t upload
+```
+
+Behaviour in this mode:
+
+- The boot screen shows **SENSOR BYPASS** and the compiler prints a warning.
+- **Up / Down** held: the motor runs at `MOTOR_PWM_MAX_PERCENT` (with soft start / soft stop) as long as the button is
+  held, whatever the height. Releasing the button, or pressing both, stops it.
+- **No end stops, no stall / wrong-way / sensor-loss detection**: only the 60 s move timeout and the watchdog remain.
+- Presets are disabled (short and long press show *BYPASS – presets off*); the EEPROM is not touched.
+- The ToF keeps running: if it is connected, its reading is still displayed (`---` otherwise), which helps check
+  `TOF_HEIGHT_SIGN` by hand.
+
+> ⚠️ Never use this firmware with the motor coupled to the desk: nothing stops the motor at the mechanical end stops.
+> Flash the normal `desktopia` environment again once the test is done.
 
 ## First power-up (do it in this order)
 

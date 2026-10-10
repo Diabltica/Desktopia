@@ -45,7 +45,7 @@ void setup() {
   UiModel boot;
   boot.screen = UiModel::Screen::Boot;
   boot.title = F("DESKTOPIA");
-  boot.subtitle = F("starting...");
+  boot.subtitle = TOF_BYPASS ? F("SENSOR BYPASS") : F("starting...");
   display.render(boot, millis());
 
   presets.begin();
