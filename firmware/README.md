@@ -19,7 +19,7 @@ the state on a round GC9A01 screen.
 | any button during an automatic move | stop (300 ms ramp), the press is ignored until released |
 | Up + Down together | nothing moves until both are released |
 
-PWM capped at **60 %**, direction **1 = up / 0 = down** (change in `config.h`).
+PWM capped at **40 %**, direction **1 = up / 0 = down** (change in `config.h`).
 
 ## File layout
 
@@ -78,9 +78,9 @@ Size: ≈ 23.3 KB of flash (≈ 81 % of the 28 KB available next to the bootload
 | Parameter | Default | Purpose |
 |---|---|---|
 | `MOTOR_DIR_UP_LEVEL` / `MOTOR_DIR_DOWN_LEVEL` | HIGH / LOW | DIR level to go up / down |
-| `MOTOR_PWM_MAX_PERCENT` | 60 | absolute duty-cycle ceiling |
+| `MOTOR_PWM_MAX_PERCENT` | 40 | absolute duty-cycle ceiling |
 | `MOTOR_PWM_MIN_PERCENT` | 20 | smallest PWM that still moves the desk (end of approach) – **to be tuned** |
-| `MOTOR_PWM_FREQ_HZ` | 20000 | PWM frequency (lower to 1-4 kHz if the driver cannot keep up) |
+| `MOTOR_PWM_FREQ_HZ` | 8000 | PWM frequency, 20 kHz max (MD10C R3); lower = cooler driver, more whine (see below) |
 | `MOTOR_SOFT_START_MS` / `MOTOR_SOFT_STOP_MS` | 1500 / 300 | 0→max and max→0 ramps |
 | `APPROACH_DISTANCE_MM` / `TARGET_TOLERANCE_MM` | 80 / 2 | start of slowdown / stop within ± |
 | `TOF_HEIGHT_SIGN` / `TOF_HEIGHT_OFFSET_MM` | +1 / 0 | height = OFFSET + SIGN × measured distance |
@@ -111,6 +111,34 @@ Behaviour in this mode:
 > ⚠️ Never use this firmware with the motor coupled to the desk: nothing stops the motor at the mechanical end stops.
 > Flash the normal `desktopia` environment again once the test is done.
 
+## Motor driver heating (Cytron MD10C R3)
+
+Ratings: 13 A continuous, 30 A peak (10 s), PWM up to 20 kHz. The board has no heatsink and no current limit.
+
+The driver's losses come from two sources:
+
+- **Switching losses**: at every PWM edge the MOSFETs briefly carry the current and the voltage at the same time. They
+  grow **linearly with the PWM frequency**. At 20 kHz (the board's maximum) they are the main source of heat, so the
+  default is now **8 kHz** (≈ 2.5× fewer switching losses).
+- **Conduction losses**: R<sub>DS(on)</sub> × I². They depend on the motor current, i.e. on the load (lifting the
+  desk takes the same torque, so about the same current, whatever the duty). Only a shorter run time reduces them.
+
+Firmware levers, in order of effect:
+
+1. `MOTOR_PWM_FREQ_HZ`: 8000 by default. Still too hot → 4000–5000 (louder motor whine). Quiet but hot → do not go
+   above 20000 (a `static_assert` refuses it).
+2. `MOTOR_PWM_MAX_PERCENT`: counter-intuitively, **a higher duty heats the driver less** for the same lift. The current
+   is set by the load, not by the duty, but a higher duty finishes the climb sooner, and at 100 % there is no switching at
+   all. Keep it as high as the motor and the desired speed allow.
+3. `MOTOR_SOFT_START_MS` / `APPROACH_DISTANCE_MM` / `MOTOR_PWM_MIN_PERCENT`: the soft start and the final approach run
+   the motor slowly under full load; keep them short / the minimum duty just high enough.
+
+Hardware levers: a stick-on heatsink on the MOSFETs and some air flow, and short, thick motor and supply wires.
+
+**Measuring the current with a multimeter**: on a PWM drive, a DC ammeter shows an *average*.
+In the **motor** wire it is the average motor current. In the **supply** wire it is about *duty × motor current*: at 40 %,
+8 A on the supply side means ≈ 20 A in the motor, well above the 13 A continuous rating.
+
 ## First power-up (do it in this order)
 
 1. **Motor decoupled** from the mechanism (or crank disengaged). First flash with a reduced PWM:
@@ -121,7 +149,7 @@ Behaviour in this mode:
    A mismatch is detected after 15 mm of travel: **WRONG WAY** screen. Then fix
    `MOTOR_DIR_UP_LEVEL`/`MOTOR_DIR_DOWN_LEVEL` (motor reversed) or `TOF_HEIGHT_SIGN` (height reversed).
 4. Set `HEIGHT_MIN_MM` / `HEIGHT_MAX_MM` **inside** the mechanical end stops (the firmware slows down before them).
-5. Set `MOTOR_PWM_MAX_PERCENT` back to 60, couple the mechanism. If **STALLED** appears at the end of a preset approach,
+5. Set `MOTOR_PWM_MAX_PERCENT` back to 40, couple the mechanism. If **STALLED** appears at the end of a preset approach,
    the minimum PWM is too low to get the desk moving: increase `MOTOR_PWM_MIN_PERCENT` by 3-5 points.
 6. Test saving a preset (long press) then recalling it from another height, in both directions.
 

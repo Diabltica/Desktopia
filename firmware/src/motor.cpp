@@ -9,6 +9,7 @@ static_assert(MOTOR_PWM_MAX_PERCENT > 0 && MOTOR_PWM_MAX_PERCENT <= 100, "MOTOR_
 static_assert(MOTOR_PWM_MIN_PERCENT >= 0 && MOTOR_PWM_MIN_PERCENT < MOTOR_PWM_MAX_PERCENT, "MOTOR_PWM_MIN_PERCENT out of range");
 static_assert(MOTOR_SOFT_START_MS > 0 && MOTOR_SOFT_STOP_MS > 0, "ramp times must be positive");
 static_assert(F_CPU / MOTOR_PWM_FREQ_HZ >= 100 && F_CPU / MOTOR_PWM_FREQ_HZ <= 65536UL, "MOTOR_PWM_FREQ_HZ out of range (245 Hz .. 160 kHz)");
+static_assert(MOTOR_PWM_FREQ_HZ <= 20000UL, "MOTOR_PWM_FREQ_HZ above the 20 kHz rating of the MD10C R3 driver");
 
 namespace {
 volatile bool g_failsafe = false;

@@ -26,10 +26,11 @@
 #define MOTOR_PWM_MAX_PERCENT      60     // hard ceiling, never exceeded
 #endif
 #ifndef MOTOR_PWM_MIN_PERCENT
-#define MOTOR_PWM_MIN_PERCENT      20     // lowest duty that still moves the desk (final approach) – tune it
+#define MOTOR_PWM_MIN_PERCENT      10     // lowest duty that still moves the desk (final approach) – tune it
 #endif
 #ifndef MOTOR_PWM_FREQ_HZ
-#define MOTOR_PWM_FREQ_HZ          20000UL  // Timer1 fast PWM; lower it (1000–4000) if the driver can't follow
+#define MOTOR_PWM_FREQ_HZ          4000UL   // Timer1 fast PWM. MD10C R3: 20 kHz max; its switching losses grow with the
+                                            // frequency → lower = cooler driver but audible whine (try 4000–10000)
 #endif
 #ifndef MOTOR_SOFT_START_MS
 #define MOTOR_SOFT_START_MS        1500   // 0 → max ramp, applied every time the motor starts
@@ -81,7 +82,7 @@
  *  Travel limits and motion profile (all heights in mm, as read by the ToF)
  * ------------------------------------------------------------------------- */
 #ifndef HEIGHT_MIN_MM
-#define HEIGHT_MIN_MM              700    // set to your real mechanical range
+#define HEIGHT_MIN_MM              640    // set to your real mechanical range
 #endif
 #ifndef HEIGHT_MAX_MM
 #define HEIGHT_MAX_MM              1200
