@@ -1,7 +1,7 @@
 #include "display.h"
-#include "board_pins.h"
-#include "config.h"
-#include <avr/pgmspace.h>
+#include "hmi_config.h"
+#include "ui_text.h"
+#include <stdlib.h>
 #include <string.h>
 
 namespace {
@@ -38,7 +38,7 @@ constexpr int16_t kTenthCell = 6 * kTenthScale;              // 24
 constexpr int16_t kBigBaseline = kBigY + 7 * kBigScale;      // bottom of the big glyphs
 
 // sin(x) * 1024 for x = 0, 3, 6 ... 90 degrees
-const int16_t kSin3[31] PROGMEM = {0, 54, 107, 160, 213, 265, 316, 367, 416, 465, 512, 558, 602, 644, 685, 724, 761, 796, 828, 859, 887, 912, 935, 956, 974, 989, 1002, 1011, 1018, 1023, 1024};
+const int16_t kSin3[31] = {0, 54, 107, 160, 213, 265, 316, 367, 416, 465, 512, 558, 602, 644, 685, 724, 761, 796, 828, 859, 887, 912, 935, 956, 974, 989, 1002, 1011, 1018, 1023, 1024};
 
 int16_t sinDeg(int16_t deg) {                                // deg: multiple of 3, any sign
   deg %= 360;
@@ -46,7 +46,7 @@ int16_t sinDeg(int16_t deg) {                                // deg: multiple of
   bool negative = deg >= 180;
   if (negative) deg -= 180;
   if (deg > 90) deg = 180 - deg;
-  int16_t v = (int16_t)pgm_read_word(&kSin3[deg / 3]);
+  int16_t v = kSin3[deg / 3];
   return negative ? -v : v;
 }
 
@@ -78,12 +78,8 @@ void Display::begin() {
 // ---------------------------------------------------------------------------------------------
 //  Helpers
 // ---------------------------------------------------------------------------------------------
-void Display::centerP(const __FlashStringHelper* s, int16_t y, uint8_t scale, uint16_t color) {
-  if (!s) return;
-  int16_t w = (int16_t)strlen_P(reinterpret_cast<const char*>(s)) * 6 * scale;
-  int16_t x = (240 - w) / 2;
-  if (x < 0) x = 0;
-  _lcd.drawTextP(x, y, s, scale, color, kBlack);
+void Display::centerT(UiText t, int16_t y, uint8_t scale, uint16_t color) {
+  if (t != UiText::None) center(uiText(t), y, scale, color);
 }
 
 void Display::center(const char* s, int16_t y, uint8_t scale, uint16_t fg) {
@@ -119,7 +115,7 @@ void Display::stampLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t 
 // ---------------------------------------------------------------------------------------------
 //  Screens
 // ---------------------------------------------------------------------------------------------
-void Display::drawMainStatic() { centerP(F("cm"), 160, 3, kGrey); }
+void Display::drawMainStatic() { center("cm", 160, 3, kGrey); }
 
 void Display::drawArrow(UiModel::Arrow a) {
   _lcd.fillRect(kCx - 30, kArrowTop - 2, 61, 60, kBlack);
@@ -227,8 +223,8 @@ void Display::enterScreen(const UiModel& m) {
   switch (m.screen) {
     case UiModel::Screen::Boot:
       _lcd.fillScreen(kBlack);
-      centerP(m.title, 92, 3, kWhite);
-      centerP(m.subtitle, 134, 2, kGrey);
+      centerT(m.title, 92, 3, kWhite);
+      centerT(m.subtitle, 134, 2, kGrey);
       break;
 
     case UiModel::Screen::Main:
@@ -246,7 +242,7 @@ void Display::enterScreen(const UiModel& m) {
       char title[10] = "PRESET  ";
       title[7] = (char)('0' + m.presetNumber);
       center(title, 52, 3, kWhite);
-      centerP(F("HOLD TO SAVE"), 166, 2, kGrey);
+      center("HOLD TO SAVE", 166, 2, kGrey);
       drawSaveHeight(m);
       break;
     }
@@ -260,7 +256,7 @@ void Display::enterScreen(const UiModel& m) {
         _lcd.fillRing(kCx, kCy, kRingOuter, kRingInner, kGreen);
       }
       drawCheckMark();
-      centerP(F("SUCCESS"), 116, 4, kGreen);
+      center("SUCCESS", 116, 4, kGreen);
       char line[10] = "PRESET  ";
       line[7] = (char)('0' + m.presetNumber);
       line[8] = 0;
@@ -276,8 +272,8 @@ void Display::enterScreen(const UiModel& m) {
 
     case UiModel::Screen::Notice:
       _lcd.fillScreen(kBlack);
-      centerP(m.title, 92, 3, kYellow);
-      centerP(m.subtitle, 134, 2, kGrey);
+      centerT(m.title, 92, 3, kYellow);
+      centerT(m.subtitle, 134, 2, kGrey);
       break;
 
     case UiModel::Screen::Fault:
@@ -285,8 +281,11 @@ void Display::enterScreen(const UiModel& m) {
       _lcd.fillCircle(kCx, 52, 14, kRed);                    // warning disc with an exclamation mark
       _lcd.fillRect(kCx - 3, 43, 6, 14, kBlack);
       _lcd.fillRect(kCx - 3, 60, 6, 6, kBlack);
-      centerP(m.title, 92, 3, kRed);
-      centerP(m.subtitle, 134, 2, kGrey);
+      centerT(m.title, 92, 3, kRed);
+      centerT(m.subtitle, 134, 2, kGrey);
+      break;
+
+    case UiModel::Screen::Count:                             // rejected by unpackUi(), never reaches the screen
       break;
   }
 

@@ -1,6 +1,6 @@
 #pragma once
 #include <Arduino.h>
-#include "io_expander.h"
+#include "hmi_link.h"
 
 enum class Button : uint8_t { Up = 0, Down, Preset1, Preset2, Preset3, Count };
 
@@ -18,13 +18,13 @@ struct ButtonEvent {
   ButtonEventType type;
 };
 
-// Debounce + short/long press detection on top of the I/O expander inputs.
+// Debounce + short/long press detection on top of the button levels sent by the HMI board.
 class Buttons {
  public:
   enum : uint8_t { kCount = static_cast<uint8_t>(Button::Count) };
 
   void reset();                                      // all buttons released, queue emptied
-  void update(IoExpander& io, uint32_t nowMs);       // call every loop; samples the expander every BTN_SAMPLE_PERIOD_MS
+  void update(const HmiLink& link, uint32_t nowMs);  // call every loop; samples the link every BTN_SAMPLE_PERIOD_MS
   bool nextEvent(ButtonEvent& ev);                   // FIFO, false when empty
 
   bool isPressed(Button b) const;                    // debounced level
@@ -35,7 +35,7 @@ class Buttons {
   // Ignore the rest of the current press: no short/long events, isActive() stays false until release.
   void consume(Button b);
 
-  bool ioError() const { return _ioError; }          // expander unreachable: levels are not trustworthy
+  bool ioError() const { return _ioError; }          // HMI link down: levels are not trustworthy
 
  private:
   struct State {

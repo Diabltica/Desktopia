@@ -14,7 +14,6 @@ namespace {
 constexpr bool kTofBypass = TOF_BYPASS != 0;
 constexpr uint16_t kMaxPermille = MOTOR_PWM_MAX_PERCENT * 10;
 constexpr uint16_t kMinPermille = MOTOR_PWM_MIN_PERCENT * 10;
-constexpr uint32_t kRecoverPeriodMs = 500;
 
 int16_t clampHeight(int16_t h) {
   if (h < HEIGHT_MIN_MM) return HEIGHT_MIN_MM;
@@ -33,29 +32,27 @@ uint16_t DeskController::approachSpeedPermille(int16_t remainingMm) {
   return (uint16_t)(kMinPermille + (uint32_t)(kMaxPermille - kMinPermille) * (uint16_t)remainingMm / APPROACH_DISTANCE_MM);
 }
 
-void DeskController::begin(uint32_t nowMs, bool ioOk, bool watchdogReset) {
+void DeskController::begin(uint32_t nowMs, bool watchdogReset) {
   _buttons.reset();
   _state = State::Idle;
   _stateSince = nowMs;
-  if (watchdogReset) {
-    enterFault(FaultCode::Watchdog, nowMs);
-  } else if (!ioOk) {
-    enterFault(FaultCode::ButtonIo, nowMs);
-  }
+  _bootUntil = nowMs + BOOT_SCREEN_MS;
+  if (watchdogReset) enterFault(FaultCode::Watchdog, nowMs);
+  refreshUi(nowMs);
 }
 
 // ---------------------------------------------------------------------------------------------
 //  Main entry point, once per loop()
 // ---------------------------------------------------------------------------------------------
 void DeskController::update(uint32_t nowMs) {
-  _buttons.update(_io, nowMs);
+  _buttons.update(_link, nowMs);
   _tof.allowReinit(!_motor.isRunning());
   _tof.update(nowMs);
   _motor.update(nowMs);
 
   // Safety checks that apply in every state
   if (_motor.consumeFailsafeFlag() && _state != State::Fault) enterFault(FaultCode::Watchdog, nowMs);
-  if (_buttons.ioError() && _state != State::Fault) enterFault(FaultCode::ButtonIo, nowMs);   // cannot see a release → stop
+  if (_buttons.ioError() && _fault != FaultCode::Link) enterFault(FaultCode::Link, nowMs);   // cannot see a release → stop
 
   ButtonEvent ev;
   while (_buttons.nextEvent(ev)) handleEvent(ev, nowMs);
@@ -89,9 +86,10 @@ void DeskController::handleEvent(const ButtonEvent& ev, uint32_t nowMs) {
       break;
 
     case State::GotoPreset:
-      if (ev.type == ButtonEventType::Pressed) {                               // any press cancels the automatic move
+      if (ev.type == ButtonEventType::Pressed) {                               // any press (e.g. Up + Down) cancels the move
         _motor.stop();
         _buttons.consume(ev.button);
+        _waitRelease = true;                                                   // the other button of the pair must not start a move
         _state = State::Idle;
         _stateSince = nowMs;
       }
@@ -116,6 +114,13 @@ void DeskController::handleEvent(const ButtonEvent& ev, uint32_t nowMs) {
 //  Idle
 // ---------------------------------------------------------------------------------------------
 void DeskController::updateIdle(uint32_t nowMs) {
+  if (_waitRelease) {                                                          // after a cancelled goto: ignore every press
+    for (uint8_t i = 0; i < Buttons::kCount; i++) {                            // until all the buttons are released
+      if (_buttons.isPressed(static_cast<Button>(i))) _buttons.consume(static_cast<Button>(i));
+    }
+    _waitRelease = _buttons.anyPressed();
+    return;
+  }
   bool up = _buttons.isActive(Button::Up);
   bool down = _buttons.isActive(Button::Down);
   if (up && down) {                                                            // ambiguous: ignore both until released
@@ -146,7 +151,7 @@ void DeskController::startManual(Button b, uint32_t nowMs) {
   }
   if (!_tof.hasFreshHeight(nowMs)) {
     _buttons.consume(b);
-    showNotice(F("NO SENSOR"), F("height unknown"), nowMs);
+    showNotice(UiText::NoSensor, UiText::HeightUnknown, nowMs);
     return;
   }
   Motor::Direction dir = (b == Button::Up) ? Motor::Direction::Up : Motor::Direction::Down;
@@ -154,7 +159,7 @@ void DeskController::startManual(Button b, uint32_t nowMs) {
   int16_t remaining = (dir == Motor::Direction::Up) ? (int16_t)(HEIGHT_MAX_MM - h) : (int16_t)(h - HEIGHT_MIN_MM);
   if (remaining <= 0) {
     _buttons.consume(b);
-    showNotice(F("LIMIT"), dir == Motor::Direction::Up ? F("max height") : F("min height"), nowMs);
+    showNotice(UiText::Limit, dir == Motor::Direction::Up ? UiText::MaxHeight : UiText::MinHeight, nowMs);
     return;
   }
   _holdButton = b;
@@ -213,15 +218,15 @@ void DeskController::updateManual(uint32_t nowMs) {
 // ---------------------------------------------------------------------------------------------
 void DeskController::startGoto(uint8_t presetIndex, uint32_t nowMs) {
   if (kTofBypass) {
-    showNotice(F("BYPASS"), F("presets off"), nowMs);
+    showNotice(UiText::Bypass, UiText::PresetsOff, nowMs);
     return;
   }
   if (!_presets.isSet(presetIndex)) {
-    showNotice(F("NO PRESET"), F("hold to save"), nowMs);
+    showNotice(UiText::NoPreset, UiText::HoldToSave, nowMs);
     return;
   }
   if (!_tof.hasFreshHeight(nowMs)) {
-    showNotice(F("NO SENSOR"), F("height unknown"), nowMs);
+    showNotice(UiText::NoSensor, UiText::HeightUnknown, nowMs);
     return;
   }
   int16_t target = clampHeight((int16_t)_presets.get(presetIndex));
@@ -294,12 +299,12 @@ bool DeskController::monitorMove(int16_t heightMm, uint32_t nowMs) {
 void DeskController::startSaving(Button b, uint32_t nowMs) {
   if (kTofBypass) {
     _buttons.consume(b);
-    showNotice(F("BYPASS"), F("presets off"), nowMs);
+    showNotice(UiText::Bypass, UiText::PresetsOff, nowMs);
     return;
   }
   if (!_tof.hasFreshHeight(nowMs)) {
     _buttons.consume(b);
-    showNotice(F("NO SENSOR"), F("height unknown"), nowMs);
+    showNotice(UiText::NoSensor, UiText::HeightUnknown, nowMs);
     return;
   }
   _saveButton = b;
@@ -317,7 +322,7 @@ void DeskController::finishSaving(uint32_t nowMs) {
   _state = State::Idle;
   _stateSince = nowMs;
   if (!_tof.hasFreshHeight(nowMs)) {
-    showNotice(F("NO SENSOR"), F("not saved"), nowMs);
+    showNotice(UiText::NoSensor, UiText::NotSaved, nowMs);
     return;
   }
   int16_t h = _tof.heightMm();
@@ -332,7 +337,7 @@ void DeskController::finishSaving(uint32_t nowMs) {
     DBG(F(" saved: "));
     DBGLN(h);
   } else {
-    showNotice(F("SAVE ERROR"), F("EEPROM"), nowMs);
+    showNotice(UiText::SaveError, UiText::Eeprom, nowMs);
   }
 }
 
@@ -344,23 +349,20 @@ void DeskController::enterFault(FaultCode code, uint32_t nowMs) {
   _state = State::Fault;
   _fault = code;
   _stateSince = nowMs;
-  _lastRecover = nowMs;
   _overlay = Overlay::None;
   DBG(F("FAULT "));
   DBGLN((uint8_t)code);
 }
 
+// A lost link is not shown: without its cord the HMI board has no power, so there is nobody to show it to,
+// and once the cord is back a message would only state the obvious. The motor is stopped all the same.
 void DeskController::updateFault(uint32_t nowMs) {
-  if (_fault == FaultCode::ButtonIo && (uint32_t)(nowMs - _lastRecover) >= kRecoverPeriodMs) {
-    _lastRecover = nowMs;
-    _io.begin(IOEXP_DIR_MASK, 0x00);                                           // the chip may have lost its configuration
-  }
-
   bool cleared = true;
-  if (_fault == FaultCode::ButtonIo) cleared = !_buttons.ioError();
+  if (_fault == FaultCode::Link) cleared = !_buttons.ioError() && _link.connectedForMs(nowMs) >= HMI_LINK_SETTLE_MS;
   else if (_fault == FaultCode::Sensor) cleared = _tof.hasFreshHeight(nowMs);
 
-  if (cleared && (uint32_t)(nowMs - _stateSince) >= FAULT_MIN_DISPLAY_MS && !_buttons.anyPressed()) {
+  bool shownLongEnough = _fault == FaultCode::Link || (uint32_t)(nowMs - _stateSince) >= FAULT_MIN_DISPLAY_MS;
+  if (cleared && shownLongEnough && !_buttons.anyPressed()) {
     _buttons.reset();
     _fault = FaultCode::None;
     _state = State::Idle;
@@ -368,7 +370,7 @@ void DeskController::updateFault(uint32_t nowMs) {
   }
 }
 
-void DeskController::showNotice(const __FlashStringHelper* title, const __FlashStringHelper* subtitle, uint32_t nowMs) {
+void DeskController::showNotice(UiText title, UiText subtitle, uint32_t nowMs) {
   _overlay = Overlay::Notice;
   _overlayUntil = nowMs + OVERLAY_NOTICE_MS;
   _noticeTitle = title;
@@ -383,9 +385,15 @@ void DeskController::refreshUi(uint32_t nowMs) {
   _ui.heightValid = _tof.hasFreshHeight(nowMs);
   _ui.arrow = UiModel::Arrow::None;
 
-  switch (_state) {
+  // A lost link shows what Idle would show (see updateFault()): it only matters once the link is back.
+  State shown = (_state == State::Fault && _fault == FaultCode::Link) ? State::Idle : _state;
+  switch (shown) {
     case State::Idle:
-      if (_overlay == Overlay::Notice) {
+      if ((int32_t)(nowMs - _bootUntil) < 0 && _overlay == Overlay::None) {
+        _ui.screen = UiModel::Screen::Boot;
+        _ui.title = UiText::Desktopia;
+        _ui.subtitle = kTofBypass ? UiText::SensorBypass : UiText::Starting;
+      } else if (_overlay == Overlay::Notice) {
         _ui.screen = UiModel::Screen::Notice;
         _ui.title = _noticeTitle;
         _ui.subtitle = _noticeSubtitle;
@@ -419,33 +427,32 @@ void DeskController::refreshUi(uint32_t nowMs) {
     case State::Fault:
       _ui.screen = UiModel::Screen::Fault;
       switch (_fault) {
-        case FaultCode::ButtonIo:
-          _ui.title = F("BUTTONS");
-          _ui.subtitle = F("I/O expander lost");
-          break;
         case FaultCode::Sensor:
-          _ui.title = F("SENSOR LOST");
-          _ui.subtitle = F("ToF not answering");
+          _ui.title = UiText::SensorLost;
+          _ui.subtitle = UiText::TofNotAnswering;
           break;
         case FaultCode::WrongWay:
-          _ui.title = F("WRONG WAY");
-          _ui.subtitle = F("check DIR / SIGN");
+          _ui.title = UiText::WrongWay;
+          _ui.subtitle = UiText::CheckDirSign;
           break;
         case FaultCode::Stall:
-          _ui.title = F("STALLED");
-          _ui.subtitle = F("desk not moving");
+          _ui.title = UiText::Stalled;
+          _ui.subtitle = UiText::DeskNotMoving;
           break;
         case FaultCode::Timeout:
-          _ui.title = F("TIMEOUT");
-          _ui.subtitle = F("move took too long");
+          _ui.title = UiText::Timeout;
+          _ui.subtitle = UiText::MoveTooLong;
           break;
         case FaultCode::Watchdog:
-          _ui.title = F("WATCHDOG");
-          _ui.subtitle = F("loop was stuck");
+          _ui.title = UiText::Watchdog;
+          _ui.subtitle = UiText::LoopStuck;
           break;
+
+        case FaultCode::Link:
         case FaultCode::None:
           break;
       }
+
       break;
   }
 }

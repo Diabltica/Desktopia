@@ -1,8 +1,7 @@
 #include "gc9a01.h"
-#include "board_pins.h"
-#include "config.h"
+#include "hmi_config.h"
+#include "hmi_pins.h"
 #include <SPI.h>
-#include <avr/pgmspace.h>
 
 namespace {
 
@@ -12,11 +11,11 @@ constexpr uint8_t CMD_RAMWR = 0x2C;
 constexpr uint8_t CMD_MADCTL = 0x36;
 
 // MADCTL for rotation 0..3 (MX / MV / MY bits + BGR order), as in Adafruit_GC9A01A::setRotation()
-const uint8_t kMadctl[4] PROGMEM = {0x48, 0x28, 0x88, 0xE8};
+const uint8_t kMadctl[4] = {0x48, 0x28, 0x88, 0xE8};
 
 // Command list: {command, argCount | 0x80 if a 150 ms pause follows, args...}, terminated by 0.
 // Generated from Adafruit_GC9A01A's initcmd[].
-const uint8_t kInit[] PROGMEM = {
+const uint8_t kInit[] = {
   0xEF, 0x00,
   0xEB, 0x01, 0x14,
   0xFE, 0x00,
@@ -70,7 +69,7 @@ const uint8_t kInit[] PROGMEM = {
 };
 
 // Classic 5x7 font, ASCII 32..126, 5 column bytes per glyph (bit 0 = top row).
-const uint8_t kFont[] PROGMEM = {
+const uint8_t kFont[] = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x5F, 0x00, 0x00, 0x00, 0x07, 0x00, 0x07, 0x00, 0x14, 0x7F, 0x14, 0x7F, 0x14,
   0x24, 0x2A, 0x7F, 0x2A, 0x12, 0x23, 0x13, 0x08, 0x64, 0x62, 0x36, 0x49, 0x56, 0x20, 0x50, 0x00, 0x08, 0x07, 0x03, 0x00,
   0x00, 0x1C, 0x22, 0x41, 0x00, 0x00, 0x41, 0x22, 0x1C, 0x00, 0x2A, 0x1C, 0x7F, 0x1C, 0x2A, 0x08, 0x08, 0x3E, 0x08, 0x08,
@@ -97,21 +96,19 @@ const uint8_t kFont[] PROGMEM = {
   0x00, 0x00, 0x77, 0x00, 0x00, 0x00, 0x41, 0x36, 0x08, 0x00, 0x02, 0x01, 0x02, 0x04, 0x02,
 };
 
-inline void spiSend(uint8_t b) {
-  SPDR = b;
-  while (!(SPSR & _BV(SPIF))) {
-  }
-}
+inline void spiSend(uint8_t b) { SPI.transfer(b); }
+
+inline void spiSendBuf(const uint8_t* buf, size_t n) { SPI.transfer(buf, nullptr, n); }
 
 inline void spiSend16(uint16_t v) {
   spiSend((uint8_t)(v >> 8));
   spiSend((uint8_t)v);
 }
 
-inline void csLow() { digitalWrite(pins::LCD_CS, LOW); }
-inline void csHigh() { digitalWrite(pins::LCD_CS, HIGH); }
-inline void dcCommand() { digitalWrite(pins::LCD_DC, LOW); }
-inline void dcData() { digitalWrite(pins::LCD_DC, HIGH); }
+inline void csLow() { digitalWrite(hmipins::LCD_CS, LOW); }
+inline void csHigh() { digitalWrite(hmipins::LCD_CS, HIGH); }
+inline void dcCommand() { digitalWrite(hmipins::LCD_DC, LOW); }
+inline void dcData() { digitalWrite(hmipins::LCD_DC, HIGH); }
 
 uint16_t isqrt(uint32_t n) {                       // floor(sqrt(n))
   uint32_t root = 0;
@@ -136,37 +133,39 @@ void Gc9a01::sendCommand(uint8_t cmd, const uint8_t* args, uint8_t count) {
   dcCommand();
   spiSend(cmd);
   dcData();
-  for (uint8_t i = 0; i < count; i++) spiSend(pgm_read_byte(args + i));
+  if (count) spiSendBuf(args, count);
   csHigh();
 }
 
 void Gc9a01::begin(uint8_t rotation) {
-  pinMode(pins::LCD_CS, OUTPUT);
+  pinMode(hmipins::LCD_CS, OUTPUT);
   csHigh();
-  pinMode(pins::LCD_DC, OUTPUT);
+  pinMode(hmipins::LCD_DC, OUTPUT);
   dcData();
+  SPI.setSCK(hmipins::LCD_SCK);
+  SPI.setTX(hmipins::LCD_MOSI);
   SPI.begin();
   SPI.beginTransaction(SPISettings(DISPLAY_SPI_HZ, MSBFIRST, SPI_MODE0));   // kept open: the LCD is the only SPI device
 
-  pinMode(pins::LCD_RST, OUTPUT);                  // hardware reset, same timing as the Adafruit library
-  digitalWrite(pins::LCD_RST, HIGH);
+  pinMode(hmipins::LCD_RST, OUTPUT);               // hardware reset, same timing as the Adafruit library
+  digitalWrite(hmipins::LCD_RST, HIGH);
   delay(100);
-  digitalWrite(pins::LCD_RST, LOW);
+  digitalWrite(hmipins::LCD_RST, LOW);
   delay(100);
-  digitalWrite(pins::LCD_RST, HIGH);
+  digitalWrite(hmipins::LCD_RST, HIGH);
   delay(200);
 
   const uint8_t* p = kInit;
   uint8_t cmd;
-  while ((cmd = pgm_read_byte(p++)) != 0) {
-    uint8_t flags = pgm_read_byte(p++);
+  while ((cmd = *p++) != 0) {
+    uint8_t flags = *p++;
     uint8_t n = flags & 0x7F;
     sendCommand(cmd, p, n);
     p += n;
     if (flags & 0x80) delay(150);
   }
 
-  uint8_t madctl = pgm_read_byte(&kMadctl[rotation & 3]);
+  uint8_t madctl = kMadctl[rotation & 3];
   csLow();
   dcCommand();
   spiSend(CMD_MADCTL);
@@ -195,11 +194,15 @@ void Gc9a01::openWindow(int16_t x0, int16_t y0, int16_t x1, int16_t y1) {
 void Gc9a01::closeWindow() { csHigh(); }
 
 void Gc9a01::streamColor(uint16_t color, uint32_t count) {
-  uint8_t hi = (uint8_t)(color >> 8);
-  uint8_t lo = (uint8_t)color;
-  while (count--) {
-    spiSend(hi);
-    spiSend(lo);
+  uint8_t buf[128];                                // 64 pixels per SPI block transfer
+  for (uint8_t i = 0; i < sizeof(buf); i += 2) {
+    buf[i] = (uint8_t)(color >> 8);
+    buf[i + 1] = (uint8_t)color;
+  }
+  while (count) {
+    uint32_t n = count > sizeof(buf) / 2 ? sizeof(buf) / 2 : count;
+    spiSendBuf(buf, n * 2);
+    count -= n;
   }
 }
 
@@ -246,22 +249,24 @@ void Gc9a01::drawChar(int16_t x, int16_t y, char c, uint8_t scale, uint16_t fg, 
 
   uint8_t col[5];
   const uint8_t* glyph = kFont + (uint16_t)(c - 32) * 5;
-  for (uint8_t i = 0; i < 5; i++) col[i] = pgm_read_byte(glyph + i);
+  for (uint8_t i = 0; i < 5; i++) col[i] = glyph[i];
 
   uint8_t fh = (uint8_t)(fg >> 8), fl = (uint8_t)fg, bh = (uint8_t)(bg >> 8), bl = (uint8_t)bg;
+  uint8_t line[6 * 2 * 16];                        // one pixel row of the glyph, scale <= 16
+  if (scale > 16) return;
   openWindow(x, y, (int16_t)(x + w - 1), (int16_t)(y + h - 1));
   for (uint8_t row = 0; row < 8; row++) {
-    for (uint8_t ry = 0; ry < scale; ry++) {
-      for (uint8_t cx = 0; cx < 6; cx++) {
-        bool on = cx < 5 && row < 7 && ((col[cx] >> row) & 1);
-        uint8_t hi = on ? fh : bh;
-        uint8_t lo = on ? fl : bl;
-        for (uint8_t rx = 0; rx < scale; rx++) {
-          spiSend(hi);
-          spiSend(lo);
-        }
+    uint16_t n = 0;
+    for (uint8_t cx = 0; cx < 6; cx++) {
+      bool on = cx < 5 && row < 7 && ((col[cx] >> row) & 1);
+      uint8_t hi = on ? fh : bh;
+      uint8_t lo = on ? fl : bl;
+      for (uint8_t rx = 0; rx < scale; rx++) {
+        line[n++] = hi;
+        line[n++] = lo;
       }
     }
+    for (uint8_t ry = 0; ry < scale; ry++) spiSendBuf(line, n);
   }
   closeWindow();
 }
@@ -273,10 +278,3 @@ void Gc9a01::drawText(int16_t x, int16_t y, const char* text, uint8_t scale, uin
   }
 }
 
-void Gc9a01::drawTextP(int16_t x, int16_t y, const __FlashStringHelper* text, uint8_t scale, uint16_t fg, uint16_t bg) {
-  const char* p = reinterpret_cast<const char*>(text);
-  for (char c; (c = (char)pgm_read_byte(p)) != 0; p++) {
-    drawChar(x, y, c, scale, fg, bg);
-    x = (int16_t)(x + 6 * scale);
-  }
-}

@@ -23,6 +23,7 @@ typedef uint8_t byte;
 
 unsigned long millis();
 void delay(unsigned long ms);
+void delayMicroseconds(unsigned int us);
 void pinMode(uint8_t pin, uint8_t mode);
 void digitalWrite(uint8_t pin, uint8_t level);
 int digitalRead(uint8_t pin);
@@ -40,3 +41,18 @@ struct SerialMock {
   template <typename T> size_t println(T v, int base) { print(v, base); puts(""); return 0; }
 };
 extern SerialMock Serial;
+
+// Byte streams (UARTs): the simulation provides its own implementations wired to a simulated RS-485 bus.
+class Print {
+ public:
+  virtual ~Print() {}
+  virtual size_t write(uint8_t b) = 0;
+  virtual size_t write(const uint8_t* buf, size_t n) { size_t k = 0; while (n--) k += write(*buf++); return k; }
+  virtual void flush() {}
+};
+class Stream : public Print {
+ public:
+  virtual int available() = 0;
+  virtual int read() = 0;
+  virtual int peek() = 0;
+};

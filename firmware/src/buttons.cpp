@@ -2,8 +2,8 @@
 #include "config.h"
 
 namespace {
-// TCA9554 bit of each logical button (order of enum Button).
-constexpr uint8_t kBit[Buttons::kCount] = {BTN_BIT_UP, BTN_BIT_DOWN, BTN_BIT_PRESET1, BTN_BIT_PRESET2, BTN_BIT_PRESET3};
+// Bit of each logical button in the HMI Buttons frame (order of enum Button).
+constexpr uint8_t kBit[Buttons::kCount] = {hmi::kBitUp, hmi::kBitDown, hmi::kBitPreset1, hmi::kBitPreset2, hmi::kBitPreset3};
 constexpr uint8_t kFirstPreset = static_cast<uint8_t>(Button::Preset1);
 }  // namespace
 
@@ -74,19 +74,18 @@ void Buttons::applyChange(uint8_t i, bool pressed, uint32_t nowMs) {
   push(i, ButtonEventType::Released);
 }
 
-void Buttons::update(IoExpander& io, uint32_t nowMs) {
+void Buttons::update(const HmiLink& link, uint32_t nowMs) {
   if ((uint32_t)(nowMs - _lastSample) >= BTN_SAMPLE_PERIOD_MS) {
     _lastSample = nowMs;
     uint8_t raw = 0;
-    if (!io.readInputs(raw)) {
+    if (!link.readInputs(raw)) {
       if (_ioFails < 255) _ioFails++;
       if (_ioFails >= BTN_IO_FAIL_LIMIT) _ioError = true;
     } else {
       _ioFails = 0;
       _ioError = false;
       for (uint8_t i = 0; i < kCount; i++) {
-        bool level = ((raw >> kBit[i]) & 1) != 0;
-        bool pressedNow = (BTN_ACTIVE_LEVEL == HIGH) ? level : !level;
+        bool pressedNow = ((raw >> kBit[i]) & 1) != 0;
         State& s = _s[i];
         if (pressedNow == s.pressed) {
           s.diffCount = 0;

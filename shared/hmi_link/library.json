@@ -1,0 +1,7 @@
+{
+  "name": "hmi_link",
+  "version": "1.0.0",
+  "description": "Desktopia motherboard <-> HMI board RS-485 protocol (shared by both firmwares)",
+  "frameworks": "arduino",
+  "platforms": "*"
+}

@@ -114,40 +114,32 @@
 #endif
 
 /* ---------------------------------------------------------------------------
- *  Buttons on the TCA9554 (SW1..SW5 = P0..P4, active HIGH: switch to +5VA, 10k pull-downs)
+ *  Link to the HMI board (RS-485 over the RJ11 cord, protocol in shared/hmi_link/hmi_protocol.h)
  * ------------------------------------------------------------------------- */
-#ifndef IOEXP_I2C_ADDR
-#define IOEXP_I2C_ADDR             0x20   // A0 = A1 = A2 = GND
+#ifndef HMI_POLL_PERIOD_MS
+#define HMI_POLL_PERIOD_MS         10     // one State frame (screen content) → one Buttons frame back
 #endif
-#ifndef IOEXP_DIR_MASK
-#define IOEXP_DIR_MASK             0x1F   // P0..P4 = buttons (inputs); P5..P7 are unconnected → driven low as outputs
+#ifndef HMI_REPLY_TIMEOUT_MS
+#define HMI_REPLY_TIMEOUT_MS       3      // the answer normally comes < 1 ms after the request
 #endif
-#ifndef BTN_ACTIVE_LEVEL
-#define BTN_ACTIVE_LEVEL           HIGH
+#ifndef HMI_LINK_TIMEOUT_MS
+#define HMI_LINK_TIMEOUT_MS        40     // no valid answer for this long = link down → buttons unknown → motor stopped
 #endif
-#ifndef BTN_BIT_UP
-#define BTN_BIT_UP                 0      // SW1
+#ifndef HMI_LINK_SETTLE_MS
+#define HMI_LINK_SETTLE_MS         100    // link back: it must stay up this long before the buttons are trusted again
 #endif
-#ifndef BTN_BIT_DOWN
-#define BTN_BIT_DOWN               1      // SW2
-#endif
-#ifndef BTN_BIT_PRESET1
-#define BTN_BIT_PRESET1            2      // SW3
-#endif
-#ifndef BTN_BIT_PRESET2
-#define BTN_BIT_PRESET2            3      // SW4
-#endif
-#ifndef BTN_BIT_PRESET3
-#define BTN_BIT_PRESET3            4      // SW5
-#endif
+
+/* ---------------------------------------------------------------------------
+ *  Buttons (SW1..SW5 on the HMI board, debounced there, levels received every HMI_POLL_PERIOD_MS)
+ * ------------------------------------------------------------------------- */
 #ifndef BTN_SAMPLE_PERIOD_MS
 #define BTN_SAMPLE_PERIOD_MS       5
 #endif
 #ifndef BTN_DEBOUNCE_SAMPLES
-#define BTN_DEBOUNCE_SAMPLES       4      // 4 x 5 ms = 20 ms
+#define BTN_DEBOUNCE_SAMPLES       2      // the HMI board already debounces (15 ms): this only filters one bad frame
 #endif
 #ifndef BTN_IO_FAIL_LIMIT
-#define BTN_IO_FAIL_LIMIT          3      // consecutive failed expander reads before a fault is raised
+#define BTN_IO_FAIL_LIMIT          1      // samples with the link down before a fault is raised (the link has its own timeout)
 #endif
 
 #ifndef PRESET_SHORT_PRESS_MAX_MS
@@ -164,7 +156,7 @@
 #endif
 
 /* ---------------------------------------------------------------------------
- *  I2C bus
+ *  I2C bus (VL53L1CB only)
  * ------------------------------------------------------------------------- */
 #ifndef I2C_CLOCK_HZ
 #define I2C_CLOCK_HZ               400000UL
@@ -174,21 +166,14 @@
 #endif
 
 /* ---------------------------------------------------------------------------
- *  Display (round 240x240 SPI LCD, GC9A01)
+ *  Screen content timing (the drawing itself is done by the HMI board, see hmi_firmware/include/hmi_config.h)
  * ------------------------------------------------------------------------- */
-#ifndef DISPLAY_ROTATION
-#define DISPLAY_ROTATION           1        // 0..3 (1 = 90° clockwise)
-#endif
-#ifndef DISPLAY_SPI_HZ
-#define DISPLAY_SPI_HZ             8000000UL
-#endif
-#ifndef DISPLAY_MIN_PERIOD_MS
-#define DISPLAY_MIN_PERIOD_MS      25       // refresh limiter
-#endif
-#ifndef DISPLAY_DEADBAND_MM
-#define DISPLAY_DEADBAND_MM        2        // ignore +-2 mm jitter on the number while the desk is still
+#ifndef BOOT_SCREEN_MS
+#define BOOT_SCREEN_MS             (TOF_BYPASS ? 3000 : 0)   // "DESKTOPIA / SENSOR BYPASS" warning after a reset
+                                    // (the HMI board shows "starting..." by itself until the link is up)
 #endif
 #ifndef OVERLAY_NOTICE_MS
+
 #define OVERLAY_NOTICE_MS          1500
 #endif
 #ifndef OVERLAY_SUCCESS_MS
