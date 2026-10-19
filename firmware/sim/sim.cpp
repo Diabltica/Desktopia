@@ -187,7 +187,7 @@ static void lcdResetLine(bool high) { if (g_lcd) g_lcd->resetLine(high); }
 void simSpiByte(uint8_t b) { if (g_lcd) g_lcd->byte(b); }
 
 // ------------------------------------------------------------------------------------------------
-//  RS-485 bus between the two THVD1450 + the RJ11 cord
+//  RS-485 bus between the two transceivers (SP485EEN / SP3485EN) + the RJ11 cord
 //  A byte reaches the other side only if the sender's transceiver drives the bus (DE high), the HMI board is
 //  powered (the cord is in) and the data pair is intact. With A and B swapped relative to the HMI board's UART
 //  polarity, the receiver gets garbage.

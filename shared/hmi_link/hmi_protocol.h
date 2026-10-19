@@ -2,7 +2,7 @@
 /*
  * Motherboard <-> HMI board link, shared by both firmwares (and the host simulation).
  *
- * Physical layer: RS-485 half duplex (THVD1450 on each board) over a 6P6C "RJ11/RJ12" cord,
+ * Physical layer: RS-485 half duplex (SP485EEN on the motherboard, SP3485EN on the HMI board) over a 6P6C "RJ11/RJ12" cord,
  * 250 000 baud 8N1 – exact on the 16 MHz ATmega32U4 (UBRR = 3) and on the RP2040.
  *
  * The motherboard is the only master. Every HMI_POLL_PERIOD_MS it sends one State frame (what the screen

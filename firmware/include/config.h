@@ -95,7 +95,7 @@
 #endif
 
 /* ---------------------------------------------------------------------------
- *  Safety nets (no current sensing on this board, so everything relies on the ToF)
+ *  Safety nets (the INA226 current monitor is not read yet, so everything relies on the ToF)
  * ------------------------------------------------------------------------- */
 #ifndef MOVE_TIMEOUT_MS
 #define MOVE_TIMEOUT_MS            60000UL  // maximum duration of one movement
