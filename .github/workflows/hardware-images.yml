@@ -1,0 +1,67 @@
+# Renders the schematic, PCB and 3D images shown in the hardware READMEs (hardware/render.sh) and commits them
+# back to the branch that was pushed. Commits made with GITHUB_TOKEN do not trigger workflows, so there is no loop.
+name: Hardware images
+
+on:
+  push:
+    paths:
+      - "hardware/**"
+      - "!hardware/*/images/**"
+      - ".github/workflows/hardware-images.yml"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Render every board even if its sources did not change"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hardware-images-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    container:
+      image: kicad/kicad:10.0.7-full      # same major version as the project files; includes the 3D models
+      options: --user root
+    steps:
+      - name: Tools
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends git xvfb xauth ca-certificates > /dev/null
+
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Render
+        env:
+          FORCE: ${{ inputs.force && '1' || '0' }}
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          export HOME=/root
+          # The 3D renderer wants a display, even off screen
+          xvfb-run -a -s "-screen 0 1920x1080x24" bash hardware/render.sh
+
+      - name: Commit the images
+        if: github.ref_type == 'branch'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hardware/*/images
+          if git diff --cached --quiet; then
+            echo "Images up to date"
+            exit 0
+          fi
+          git commit -m "hardware: update the README images [skip ci]"
+          git pull --rebase origin "$GITHUB_REF_NAME"
+          git push origin "HEAD:$GITHUB_REF_NAME"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hardware-images
+          path: hardware/*/images
