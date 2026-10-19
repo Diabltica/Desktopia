@@ -1588,7 +1588,7 @@
 			)
 		)
 		(embedded_fonts no)
-		(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/RoundLCD.step"
+		(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/RoundLCD.wrl"
 			(offset
 				(xyz 0 0 2.5)
 			)
