@@ -1,6 +1,6 @@
 # Desktopia – standing desk firmware
 
-Two boards, two firmwares, linked by an RJ11 cord:
+Two boards, two firmwares, linked by an RJ11 cord (project overview: [../README.md](../README.md)):
 
 - **Motherboard** (this folder): ATmega32U4 (16 MHz, 5 V), Arduino framework, PlatformIO. Drives the motor (DIR + PWM),
   reads the height with a VL53L1CB, runs the state machine and decides what the screen shows.
@@ -54,7 +54,8 @@ shared/hmi_link/                 hmi_protocol.* (frames, CRC, UiModel packing), 
 ## The link (RS-485 over an RJ11 cord)
 
 The 12-pin FFC is replaced by a **6-conductor RJ11 cord (6P6C, sometimes sold as "RJ12")**. Each board has an
-RJ11 jack and a THVD1450 RS-485 transceiver (3.3–5 V, ±12 kV IEC ESD on A/B, fail-safe receiver).
+RJ11 jack and an RS-485 transceiver: SP485EEN (5 V) on the motherboard, SP3485EN (3.3 V) on the HMI board; same
+pin-out, ±15 kV ESD on A/B, both JLCPCB *Basic* parts.
 
 | Pin | 1 | 2 | 3 | 4 | 5 | 6 |
 |---|---|---|---|---|---|---|
@@ -99,10 +100,12 @@ Motherboard (`hardware/desktopia/desktopia.kicad_sch`):
 | RS-485 DE + /RE | `RS485_DE` (U8-2, U8-3) | PD4 | D4 |
 | I2C SDA / SCL | `SDA` / `SCL` | PD1 / PD0 | Wire |
 | ISP | `SCK` / `MOSI` / `MISO` | PB1 / PB2 / PB3 | J2 only |
-| Motor current | `Imotor` | PF0 | ignored (sensor not fitted) |
+| Motor current alert | `I_ALERT` (U9-3, INA226) | PE6 / INT6 | D7, not used yet |
 
-Free: PB0, PB4, PB5, PB7, PC7, PD5-PD7, PE6, PF1, PF4-PF7. The ToF GPIO1 only goes to test point TP14.
-I2C: VL53L1CB at `0x29` (`0x52` in 8-bit notation) behind the TXS0104E.
+Free: PB0, PB4, PB5, PB7, PC7, PD5-PD7, PF0, PF1, PF4-PF7. The ToF GPIO1 only goes to test point TP14.
+I2C: VL53L1CB at `0x29` (`0x52` in 8-bit notation) behind the TXS0104E; INA226 current monitor U9 at `0x40`
+(A0 = A1 = GND) on the 5 V side. It measures the motor supply across the 2 mΩ shunt R25 (±41 A full scale, 1.25 mA/bit
+with a calibration of 2048); this firmware does not read it yet.
 The 5 V sent to the HMI board goes through the PTC F1 (500 mA). R22 / R23 (4.7 kΩ) bias the bus when nobody drives
 it; R24 (120 Ω termination) is not fitted (only for cords over ~5 m; then R22 / R23 = 680 Ω).
 
@@ -118,7 +121,7 @@ HMI board (`hardware/desktopia_HMI/desktopia_HMI.kicad_sch`, RP2040):
 
 Buttons switch to GND, with the RP2040 internal pull-ups, and are debounced on the HMI board (15 ms). The screen is still
 powered from the 5 V (the module regulates its own 3.3 V); its logic is now 3.3 V from the RP2040.
-Power: the 5 V comes from the cord, a 3.3 V LDO (XC6206P332) feeds the RP2040, the flash (W25Q16JV, 2 MB) and the
+Power: the 5 V comes from the cord, a 3.3 V LDO (XC6206P332) feeds the RP2040, the flash (W25Q128JV, 16 MB; the firmware uses 2 MB) and the
 transceiver. The USB-C (through Schottky D1) only powers the board while it is flashed on the bench.
 
 ## Build and flash
@@ -230,7 +233,7 @@ In the **motor** wire it is the average motor current. In the **supply** wire it
 2. **Motor decoupled** from the mechanism (or crank disengaged). First flash of the motherboard with a reduced PWM:
    `build_flags = -DMOTOR_PWM_MAX_PERCENT=25` in the environment being used. Connect the two boards with the RJ11 cord.
 3. The screen should show a plausible height that changes when a target is moved in front of the sensor.
-   Otherwise: `--.-` = silent sensor (see *Hardware notes*), absurd value = adjust `TOF_HEIGHT_OFFSET_MM`.
+   Otherwise: `--.-` = silent sensor (check the 2.8 V rail and the level shifter), absurd value = adjust `TOF_HEIGHT_OFFSET_MM`.
 4. Press **Up**: the motor must turn in the "up" direction **and** the displayed height must increase.
    A mismatch is detected after 15 mm of travel: **WRONG WAY** screen. Then fix
    `MOTOR_DIR_UP_LEVEL`/`MOTOR_DIR_DOWN_LEVEL` (motor reversed) or `TOF_HEIGHT_SIGN` (height reversed).
@@ -242,7 +245,7 @@ In the **motor** wire it is the average motor current. In the **supply** wire it
 
 ## Built-in protections
 
-No current sensing on this board: everything relies on the ToF and on the link.
+The INA226 current monitor is fitted but not read yet: everything relies on the ToF and on the link.
 
 - Loss of the ToF (no valid measurement for 400 ms) or of the HMI link (buttons unknown) → immediate stop, no ramp.
 - Wrong direction (15 mm the opposite way), stall (3 mm of progress in 1.5 s while the PWM is above the minimum),
@@ -258,17 +261,11 @@ No current sensing on this board: everything relies on the ToF and on the link.
 - I2C bus with timeout (25 ms). The ST driver loops forever on a NACK: it is only called after a successful address ping.
 - No pinch or obstacle detection other than the "no more progress" stall.
 
-## Hardware notes from the schematics
+## Hardware notes
 
-1. **`Mpwm` and `Mdir` have no pull-down.** During a reset, the bootloader or an ISP flash, these lines float: depending on the
-   motor driver, the desk may start moving. Add a pull-down (10 kΩ) on `Mpwm` (and `Mdir`), or check that the driver has one.
-2. `desktopia_HMI.kicad_sch` is new: J1 (screen), SW1-SW5 and TP2-TP6 keep the UUIDs they had in the motherboard schematic, so
-   *Tools → Update PCB from Schematic* in `desktopia_HMI.kicad_pcb` keeps their footprints and placement. FPC_HMI1 disappears;
-   the RJ11 jack, the RP2040 and its parts arrive unplaced. The board outline (142 × 20 mm) is too small for them as is.
-   The RP2040 needs its decoupling capacitors next to each supply pin and a solid ground under the QFN.
-3. Motherboard PCB: FPC_MB1, the TCA9554 (U2), R10-R14, C10, C11, TP8 are gone; J6, U8, F1, R22-R24, C23, C24 are new.
-4. Parts without an LCSC number in the schematics (new values): THVD1450D, RJ11 6P6C jack, RP2040, W25Q16JVSS, 12 MHz
-   crystal (ABM8-272-T3 or equivalent, 15 pF load capacitors), XC6206P332MR, PTC 500 mA, 4.7 kΩ, 27 Ω, 1 kΩ, 15 pF, 10 µF.
+The boards have their own READMEs: [motherboard](../hardware/desktopia/README.md) and
+[HMI board](../hardware/desktopia_HMI/README.md). They cover the blocks, the connectors, the JLCPCB parts, the PCB work
+still to do and the known issues (TPS5430 ENA, no pull-down on `Mpwm` / `Mdir`).
 
 ## Assumptions to confirm
 
@@ -292,10 +289,11 @@ No current sensing on this board: everything relies on the ToF and on the link.
 - **Schematics**: ERC of both projects, and the exported netlists checked pin by pin by script (every link signal; the 195
   motherboard pins outside the change keep exactly their previous connections).
 - **Not tested**: on real boards. No trials with the motor driver, the VL53L1CB, the screen module, the transceivers or an
-  RJ11 cord. The PCBs are not laid out (see *Hardware notes*).
+  RJ11 cord. The PCBs are not laid out (see the board READMEs).
 
 ## Simulation bench (optional)
 
 ```bash
 cd sim && ./run.sh     # Linux / WSL, g++; writes emulated screenshots to sim/shots/ (PPM)
+./preview.sh           # rebuilds docs/ui_preview.png from those screenshots (ImageMagick)
 ```

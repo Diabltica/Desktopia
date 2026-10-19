@@ -1,0 +1,102 @@
+# Desktopia – HMI board
+
+KiCad 10 project: `desktopia_HMI.kicad_sch`, `desktopia_HMI.kicad_pcb`. Firmware: [../../hmi_firmware/](../../hmi_firmware/README.md).
+
+The HMI board sits on the front edge of the desk. It carries the round screen and the five buttons. Its own RP2040
+draws the screen, debounces the buttons and answers the motherboard over RS-485. A single RJ11 cord brings both the
+power and the link.
+
+## Views
+
+Interactive viewer (KiCanvas, opens the files of the `main` branch in the browser):
+[schematic](https://kicanvas.org/?github=https://github.com/Diabltica/Desktopia/blob/main/hardware/desktopia_HMI/desktopia_HMI.kicad_sch) · [PCB](https://kicanvas.org/?github=https://github.com/Diabltica/Desktopia/blob/main/hardware/desktopia_HMI/desktopia_HMI.kicad_pcb).
+
+The images below are rendered by [`../render.sh`](../render.sh) and committed by the
+[*Hardware images*](../../.github/workflows/hardware-images.yml) workflow on every push that touches `hardware/`.
+Click an image to open it full size.
+
+**Schematic**
+
+[![Schematic](images/schematic.svg)](images/schematic.svg)
+
+**PCB**
+
+| Front | Back (mirrored) |
+|---|---|
+| [![PCB front](images/pcb_front.svg)](images/pcb_front.svg) | [![PCB back](images/pcb_back.svg)](images/pcb_back.svg) |
+
+**3D**
+
+![3D view](images/3d_iso.png)
+
+| Top | Bottom |
+|---|---|
+| ![3D top](images/3d_front.png) | ![3D bottom](images/3d_back.png) |
+
+## Blocks
+
+| Block | Parts | Notes |
+|---|---|---|
+| MCU | U1 RP2040, Y1 12 MHz (C19 / C20 33 pF, R8 1k), decoupling C3-C18 | standard Raspberry Pi minimal design |
+| Flash | U4 W25Q128JVSIQ (16 MB QSPI) | the firmware uses 2 MB |
+| 3.3 V | U3 XC6206P332 LDO, C1 / C2 | supplies the RP2040, flash and transceiver |
+| Link | J2 RJ11 6P6C, U2 SP3485EN (3.3 V RS-485), R1 120 Ω (not assembled) | UART0: GP0 TX, GP1 RX, GP2 DE + /RE |
+| USB | J3 USB-C (HRO TYPE-C-31-M-12), D1 SS14, R2 / R3 5.1k on CC, R4 / R5 22 Ω | bench flashing only |
+| Boot / debug | SW6 BOOT (QSPI_SS through R6 1k), R7 10k RUN pull-up, TP7-TP10 SWD | no reset button: replug, or ground TP9 (RUN) |
+| Screen | J1 7-pin connector, TP2-TP6 | GC9A01 240×240 round LCD on SPI0 |
+| Buttons | SW1-SW5 Kailh Choc hot-swap sockets (PG1350) | to GND, internal pull-ups |
+
+## Connectors
+
+| Ref | Function | Pin-out |
+|---|---|---|
+| J2 | RJ11 cord to the motherboard | 1 = +5 V, 2 = GND, 3 = A, 4 = B, 5 = GND, 6 = +5 V |
+| J1 | round LCD | 1 = +5 V, 2 = GND, 3 = SCK (GP18), 4 = MOSI (GP19), 5 = DC (GP20), 6 = CS (GP17), 7 = RST (GP21) |
+| J3 | USB-C | flashing (UF2 bootloader) |
+
+Buttons: SW1 Up = GP11, SW2 Down = GP12, SW3-SW5 Preset 1-3 = GP13-GP15.
+
+## Power
+
+- The motherboard supplies 5 V through the cord, limited by its 500 mA PTC. The screen module takes the 5 V and
+  regulates its own 3.3 V. Its logic is driven at 3.3 V by the RP2040.
+- On the bench, USB-C powers the board through the Schottky D1, which keeps the cord's 5 V out of the USB host.
+  Unplug the RJ11 cord while flashing over USB: otherwise the USB also feeds the motherboard's 5 V rail through the cord.
+
+## Flashing
+
+First flash: hold **SW6 (BOOT)**, plug the USB-C cable, then release SW6. The board appears as a USB drive (RPI-RP2).
+Then run `pio run -t upload`, or copy `firmware.uf2` onto the drive. Later updates work the same way, or through SWD
+on TP7 (SWCLK) / TP8 (SWDIO) / TP10 (GND).
+
+## Test points
+
+| TP | Net | TP | Net |
+|---|---|---|---|
+| TP2 | LCD_SCK | TP7 | SWCLK |
+| TP3 | LCD_MOSI | TP8 | SWDIO |
+| TP4 | LCD_DC | TP9 | RUN (ground it to reset) |
+| TP5 | LCD_CS | TP10 | GND |
+| TP6 | LCD_RST | | |
+
+## Assembly (JLCPCB)
+
+Every assembled part has its LCSC number in the `LCSC` and `jlcpcb PartNumber` fields, Basic parts first.
+
+- Y1 is the Basic X322512MSB4SI (C9002). It is specified for a 20 pF load, hence the 33 pF capacitors C19 / C20.
+- The Kailh Choc hot-swap sockets (CPG135001S30, C5333465) are out of stock at JLCPCB: solder them by hand.
+- Not assembled: R1 (termination, only for cords over ~5 m) and the test points. J1 takes the screen module's
+  cable.
+
+## PCB: what to do before ordering
+
+The schematic is new. The PCB still holds the former passive board, which was linked to the motherboard by a 12-pin FFC.
+
+- J1 (screen), SW1-SW5 and TP2-TP6 kept the UUIDs they had in the old motherboard schematic. *Tools → Update PCB
+  from Schematic* therefore keeps their footprints and placement.
+- FPC_HMI1 disappears. The RJ11 jack, the RP2040 and its parts arrive unplaced.
+- The 142 × 20 mm outline is too small for them as it is: the board has to grow, or the RJ11 jack has to go on the back.
+- Place the RP2040 decoupling capacitors next to each supply pin, keep a solid ground under the QFN, and keep the
+  crystal and the QSPI flash close to the RP2040.
+- Check the RJ11 jack (EVERCOM 5301-6P6C, C3097716) against the Amphenol 54601 footprint it uses. Compare the drilling
+  with the part's datasheet.
