@@ -214,7 +214,7 @@
 		(uuid "d2a239b3-1ccb-47df-b7fc-cecf6d05b205")
 	)
 	(embedded_fonts no)
-	(model "${KIPRJMOD}/JLCImport.3dshapes/KT-0603R.wrl"
+	(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/KT-0603R.wrl"
 		(offset
 			(xyz 0 0 0.01)
 		)

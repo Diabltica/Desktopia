@@ -250,7 +250,7 @@
 		(uuid "735c3988-1472-4306-a075-499a14829551")
 	)
 	(embedded_fonts no)
-	(model "${KIPRJMOD}/JLCImport.3dshapes/brown.step"
+	(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/brown.step"
 		(offset
 			(xyz 0 0 0)
 		)
@@ -261,7 +261,7 @@
 			(xyz -0 -0 -180)
 		)
 	)
-	(model "${KIPRJMOD}/JLCImport.3dshapes/PG1350-socket.STEP"
+	(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/PG1350-socket.STEP"
 		(offset
 			(xyz 10 6 -2)
 		)

@@ -3705,7 +3705,7 @@
 			(uuid "513e3b54-91d1-43d5-a349-1a14291fb9bc")
 		)
 		(embedded_fonts no)
-		(model "${KIPRJMOD}/kicad_library/pcb/JLCImport.3dshapes/VL53L1CBV0FY_1.step"
+		(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/VL53L1CBV0FY_1.step"
 			(offset
 				(xyz 0 0 0.01)
 			)
@@ -6909,7 +6909,7 @@
 			(uuid "cde7080c-87f7-4d36-8454-91589dfd0ecf")
 		)
 		(embedded_fonts no)
-		(model "${KIPRJMOD}/kicad_library/pcb/JLCImport.3dshapes/RVT1H4R7M0405_C18221489.step"
+		(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/RVT1H4R7M0405_C18221489.step"
 			(offset
 				(xyz 0 0 0.01)
 			)
@@ -9137,7 +9137,7 @@
 			(uuid "8d29118a-258e-49f4-9411-ef3b993f7a3a")
 		)
 		(embedded_fonts no)
-		(model "${KIPRJMOD}/JLCImport.3dshapes/USB4105GFA.step"
+		(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/USB4105GFA.step"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -13189,7 +13189,7 @@
 			(uuid "b2cd564b-7474-49a5-adf9-ca3176a9ac60")
 		)
 		(embedded_fonts no)
-		(model "${KIPRJMOD}/kicad_library/pcb/JLCImport.3dshapes/KT-0603R.step"
+		(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/KT-0603R.step"
 			(offset
 				(xyz 0 0 0.01)
 			)
@@ -15092,7 +15092,7 @@
 			(uuid "a37e4b52-b0d6-4c8c-98c2-764958e3c6ad")
 		)
 		(embedded_fonts no)
-		(model "${KIPRJMOD}/kicad_library/pcb/JLCImport.3dshapes/VE-330M1A0505-TRO.step"
+		(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/VE-330M1A0505-TRO.step"
 			(offset
 				(xyz 0 0 0.1)
 			)
@@ -16538,7 +16538,7 @@
 			(uuid "a33c5768-b7cd-4ea3-8fab-c0088c4d781f")
 		)
 		(embedded_fonts no)
-		(model "${KIPRJMOD}/kicad_library/pcb/JLCImport.3dshapes/C508128L-2P0G36.step"
+		(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/C508128L-2P0G36.step"
 			(offset
 				(xyz -0.3 0 0)
 			)
@@ -16799,7 +16799,7 @@
 			(uuid "76162003-e488-4ab0-b1ca-70698353dd37")
 		)
 		(embedded_fonts no)
-		(model "${KIPRJMOD}/kicad_library/pcb/JLCImport.3dshapes/DC050-2_5-T.step"
+		(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/DC050-2_5-T.step"
 			(offset
 				(xyz -2.71 3.279 0)
 			)

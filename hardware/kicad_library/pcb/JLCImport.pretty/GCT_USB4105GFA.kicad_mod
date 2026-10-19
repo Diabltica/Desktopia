@@ -348,7 +348,7 @@
 		(uuid "56b6ac42-dd48-4c7c-8ca9-397aa5b51fd0")
 	)
 	(embedded_fonts no)
-	(model "${KIPRJMOD}/JLCImport.3dshapes/USB4105GFA.step"
+	(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/USB4105GFA.step"
 		(offset
 			(xyz 0 0 0)
 		)

@@ -57,7 +57,7 @@
   (fp_poly (pts (xy 2.032 3.556) (xy 3.048 3.556) (xy 2.54 3.048)) (stroke (width 0) (type solid)) (fill solid) (layer "F.Fab") (uuid "1e20d6d7-54f5-4669-84ef-54fad995b1f2"))
   (pad "1" thru_hole oval (at -2.54 0) (size 2.4 2.4) (drill 1.7) (layers "*.Cu" "*.Mask") (uuid "2a1e0f3e-7f10-466d-907d-056d8353e369"))
   (pad "2" thru_hole oval (at 2.54 0) (size 2.4 2.4) (drill 1.7) (layers "*.Cu" "*.Mask") (uuid "37508846-94bc-4c38-8d0a-4f2e8d3a99f3"))
-  (model "${KIPRJMOD}/JLCImport.3dshapes/C508128L-2P0G36.wrl"
+  (model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/C508128L-2P0G36.wrl"
     (offset (xyz -0.3 0 0))
     (scale (xyz 1 1 1))
     (rotate (xyz 0 0 -180))

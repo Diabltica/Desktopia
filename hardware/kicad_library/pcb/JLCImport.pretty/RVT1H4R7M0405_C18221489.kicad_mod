@@ -37,7 +37,7 @@
   (fp_poly (pts (xy -1.818 0.559) (xy -1.818 1.419) (xy -1.689 1.419) (xy -1.689 0.559)) (stroke (width 0) (type solid)) (fill solid) (layer "F.SilkS") (uuid "7854eb72-d7aa-44cd-8512-81ab341ffeea"))
   (pad "1" smd rect (at -1.660525 0) (size 2.8 1.1) (layers "F.Cu" "F.Mask" "F.Paste") (uuid "80b33a84-d3ea-4979-b1fd-63df0264af9d"))
   (pad "2" smd rect (at 1.660525 0) (size 2.8 1.1) (layers "F.Cu" "F.Mask" "F.Paste") (uuid "80489c2c-aca2-4f6d-ab0a-2ac5ac996d2f"))
-  (model "${KIPRJMOD}/JLCImport.3dshapes/RVT1H4R7M0405_C18221489.wrl"
+  (model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/RVT1H4R7M0405_C18221489.wrl"
     (offset (xyz 0 0 0.01))
     (scale (xyz 1 1 1))
     (rotate (xyz 0 0 -90))

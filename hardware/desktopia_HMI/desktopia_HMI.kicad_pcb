@@ -373,7 +373,7 @@
 			(uuid "bdce498e-8499-4d20-b792-0adb570b5d02")
 		)
 		(embedded_fonts no)
-		(model "${KIPRJMOD}/JLCImport.3dshapes/brown.step"
+		(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/brown.step"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -384,7 +384,7 @@
 				(xyz -0 -0 -180)
 			)
 		)
-		(model "${KIPRJMOD}/JLCImport.3dshapes/PG1350-socket.STEP"
+		(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/PG1350-socket.STEP"
 			(offset
 				(xyz 10 6 -2)
 			)
@@ -682,7 +682,7 @@
 			(uuid "29ad1725-705e-48a0-8d47-bf899abef8a3")
 		)
 		(embedded_fonts no)
-		(model "${KIPRJMOD}/JLCImport.3dshapes/brown.step"
+		(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/brown.step"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -693,7 +693,7 @@
 				(xyz -0 -0 -180)
 			)
 		)
-		(model "${KIPRJMOD}/JLCImport.3dshapes/PG1350-socket.STEP"
+		(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/PG1350-socket.STEP"
 			(offset
 				(xyz 10 6 -2)
 			)
@@ -991,7 +991,7 @@
 			(uuid "19184436-13fa-4baf-9986-7715b887cb91")
 		)
 		(embedded_fonts no)
-		(model "${KIPRJMOD}/JLCImport.3dshapes/brown.step"
+		(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/brown.step"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -1002,7 +1002,7 @@
 				(xyz -0 -0 -180)
 			)
 		)
-		(model "${KIPRJMOD}/JLCImport.3dshapes/PG1350-socket.STEP"
+		(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/PG1350-socket.STEP"
 			(offset
 				(xyz 10 6 -2)
 			)
@@ -1300,7 +1300,7 @@
 			(uuid "eecf04e6-713c-4908-8c3f-75700c8640f3")
 		)
 		(embedded_fonts no)
-		(model "${KIPRJMOD}/JLCImport.3dshapes/brown.step"
+		(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/brown.step"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -1311,7 +1311,7 @@
 				(xyz -0 -0 -180)
 			)
 		)
-		(model "${KIPRJMOD}/JLCImport.3dshapes/PG1350-socket.STEP"
+		(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/PG1350-socket.STEP"
 			(offset
 				(xyz 10 6 -2)
 			)
@@ -1588,7 +1588,7 @@
 			)
 		)
 		(embedded_fonts no)
-		(model "${KIPRJMOD}/JLCImport.3dshapes/RoundLCD.step"
+		(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/RoundLCD.step"
 			(offset
 				(xyz 0 0 2.5)
 			)
@@ -1886,7 +1886,7 @@
 			(uuid "a2b77181-31d4-412f-b01d-ce787de9d98a")
 		)
 		(embedded_fonts no)
-		(model "${KIPRJMOD}/JLCImport.3dshapes/brown.step"
+		(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/brown.step"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -1897,7 +1897,7 @@
 				(xyz -0 -0 -180)
 			)
 		)
-		(model "${KIPRJMOD}/JLCImport.3dshapes/PG1350-socket.STEP"
+		(model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/PG1350-socket.STEP"
 			(offset
 				(xyz 10 6 -2)
 			)

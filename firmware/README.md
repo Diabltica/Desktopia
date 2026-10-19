@@ -88,7 +88,7 @@ to, and once the cord is back a message would only state the obvious.
 
 ## Pinout
 
-Motherboard (`hardware/desktopia.kicad_sch`):
+Motherboard (`hardware/desktopia/desktopia.kicad_sch`):
 
 | Function | Schematic net | MCU | Arduino |
 |---|---|---|---|
@@ -106,7 +106,7 @@ I2C: VL53L1CB at `0x29` (`0x52` in 8-bit notation) behind the TXS0104E.
 The 5 V sent to the HMI board goes through the PTC F1 (500 mA). R22 / R23 (4.7 kΩ) bias the bus when nobody drives
 it; R24 (120 Ω termination) is not fitted (only for cords over ~5 m; then R22 / R23 = 680 Ω).
 
-HMI board (`hardware/desktopia_HMI.kicad_sch`, RP2040):
+HMI board (`hardware/desktopia_HMI/desktopia_HMI.kicad_sch`, RP2040):
 
 | Function | Net | GPIO |
 |---|---|---|

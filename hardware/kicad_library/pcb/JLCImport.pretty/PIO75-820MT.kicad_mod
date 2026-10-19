@@ -25,7 +25,7 @@
   (fp_line (start -3.900195 -4) (end 3.899738 -4) (stroke (width 0.254) (type solid)) (layer "F.SilkS") (uuid "494d3ce6-7d20-463f-ace1-72c13112bc83"))
   (pad "1" smd rect (at -2.5 0) (size 3 7.5) (layers "F.Cu" "F.Mask" "F.Paste") (uuid "fd528b62-350b-46f6-a4b2-e02969c843e3"))
   (pad "2" smd rect (at 2.5 0) (size 3 7.5) (layers "F.Cu" "F.Mask" "F.Paste") (uuid "0a5b9fe5-ba49-4c52-b80c-42ee101dc79d"))
-  (model "${KIPRJMOD}/JLCImport.3dshapes/PIO75-820MT.wrl"
+  (model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/PIO75-820MT.wrl"
     (offset (xyz 0 0 0.01))
     (scale (xyz 1 1 1))
     (rotate (xyz 0 0 0))

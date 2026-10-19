@@ -41,7 +41,7 @@
   (pad "2" smd rect (at -1.999869 -1.25) (size 0.3 0.8) (layers "F.Cu" "F.Mask" "F.Paste") (uuid "089b3314-0363-4adb-ba2e-afa478e4d4bd"))
   (pad "1" smd rect (at -2.5 -1.25) (size 0.3 0.8) (layers "F.Cu" "F.Mask" "F.Paste") (uuid "b478ddf0-6f28-4c33-a81c-ef11e47fb7bb"))
   (pad "12" smd rect (at 3.445 1.25) (size 0.35 0.8) (layers "F.Cu" "F.Mask" "F.Paste") (uuid "1f82f650-4c62-455b-a67f-3e816a20deda"))
-  (model "${KIPRJMOD}/JLCImport.3dshapes/0510-GX-11PWB-GF-RB.wrl"
+  (model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/0510-GX-11PWB-GF-RB.wrl"
     (offset (xyz 0 -0.45 0.05))
     (scale (xyz 1 1 1))
     (rotate (xyz 0 0 0))

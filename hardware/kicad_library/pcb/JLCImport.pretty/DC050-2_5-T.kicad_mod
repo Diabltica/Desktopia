@@ -36,7 +36,7 @@
   (pad "3" smd rect (at -3.05 -5.40004) (size 2 2) (layers "F.Cu" "F.Mask" "F.Paste") (uuid "a8c91120-95d5-42b3-b8ec-69ffb8fa7248"))
   (pad "" np_thru_hole circle (at 3.05 0.099822) (size 1.8 1.8) (drill 1.8) (layers "*.Cu" "*.Mask") (uuid "e07e0b31-4651-4810-b757-245dd34aeada"))
   (pad "" np_thru_hole circle (at -1.35 0.099822) (size 1.9 1.9) (drill 1.9) (layers "*.Cu" "*.Mask") (uuid "ae71a2ab-bdc6-4105-8b67-68184b5057bd"))
-  (model "${KIPRJMOD}/JLCImport.3dshapes/DC050-2_5-T.wrl"
+  (model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/DC050-2_5-T.wrl"
     (offset (xyz -2.71 3.279 0))
     (scale (xyz 1 1 1))
     (rotate (xyz 0 0 0))

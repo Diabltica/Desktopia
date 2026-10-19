@@ -49,7 +49,7 @@
   (pad "3" smd rect (at 0 0.8) (size 0.5 0.5) (layers "F.Cu" "F.Mask" "F.Paste") (uuid "6fa31cee-a038-48bf-8cd4-0fa691364136"))
   (pad "2" smd rect (at 0.799846 0.8) (size 0.5 0.5) (layers "F.Cu" "F.Mask" "F.Paste") (uuid "c10e4346-e042-4a00-933c-61ebaecb4987"))
   (pad "1" smd rect (at 1.6 0.8) (size 0.5 0.5) (layers "F.Cu" "F.Mask" "F.Paste") (uuid "0185d41b-a84b-45d7-bb8b-8e9e2fc513b1"))
-  (model "${KIPRJMOD}/JLCImport.3dshapes/VL53L1CBV0FY_1.wrl"
+  (model "${KIPRJMOD}/../kicad_library/pcb/JLCImport.3dshapes/VL53L1CBV0FY_1.wrl"
     (offset (xyz 0 0 0.01))
     (scale (xyz 1 1 1))
     (rotate (xyz 0 0 -180))
