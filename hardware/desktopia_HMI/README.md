@@ -42,7 +42,7 @@ The screen module model (`RoundLCD.wrl`) shows the real UI, taken from a screens
 | MCU | U1 RP2040, Y1 12 MHz (C19 / C20 33 pF, R8 1k), decoupling C3-C18 | standard Raspberry Pi minimal design |
 | Flash | U4 W25Q128JVSIQ (16 MB QSPI) | the firmware uses 2 MB |
 | 3.3 V | U3 XC6206P332 LDO, C1 / C2 | supplies the RP2040, flash and transceiver |
-| Link | J2 RJ11 6P6C, U2 SP3485EN (3.3 V RS-485), R1 120 Ω (not assembled) | UART0: GP0 TX, GP1 RX, GP2 DE + /RE |
+| Link | J2 solder pads for the 6P6C cord, U2 SP3485EN (3.3 V RS-485), R1 120 Ω (not assembled) | UART0: GP0 TX, GP1 RX, GP2 DE + /RE |
 | USB | J3 USB-C (HRO TYPE-C-31-M-12), D1 SS14, R2 / R3 5.1k on CC, R4 / R5 22 Ω | bench flashing only |
 | Boot / debug | SW6 BOOT (QSPI_SS through R6 1k), R7 10k RUN pull-up, TP7-TP10 SWD | no reset button: replug, or ground TP9 (RUN) |
 | Screen | J1 7-pin connector, TP2-TP6 | GC9A01 240×240 round LCD on SPI0 |
@@ -52,18 +52,34 @@ The screen module model (`RoundLCD.wrl`) shows the real UI, taken from a screens
 
 | Ref | Function | Pin-out |
 |---|---|---|
-| J2 | RJ11 cord to the motherboard | 1 = +5 V, 2 = GND, 3 = A, 4 = B, 5 = GND, 6 = +5 V |
+| J2 | flat 6P6C cord to the motherboard, soldered (see below) | 1 = +5 V, 2 = GND, 3 = A, 4 = B, 5 = GND, 6 = +5 V |
 | J1 | round LCD | 1 = +5 V, 2 = GND, 3 = SCK (GP18), 4 = MOSI (GP19), 5 = DC (GP20), 6 = CS (GP17), 7 = RST (GP21) |
 | J3 | USB-C | flashing (UF2 bootloader) |
 
 Buttons: SW1 Up = GP11, SW2 Down = GP12, SW3-SW5 Preset 1-3 = GP13-GP15.
+
+## The cord (J2)
+
+The board sits at 45° under the front edge of the desk, in a wedge-shaped housing. An RJ11 jack would stand 12 mm
+off the board, and its cord would leave parallel or perpendicular to the board, so at 45° to the desk either way.
+The cord is therefore **soldered**: J2 (`Desktopia:Cable_6P6C_SolderPads`) has six 1 mm holes at 2.54 mm and two
+slots for a 2.5 mm cable tie. The cord leaves over the board edge (the dashed *board edge* line on the Fab layer) and
+folds flat against the underside of the desk. Only the motherboard end has an RJ11 plug, so the cord is unplugged there.
+
+1. Take a flat 6-conductor cord (6P6C, sometimes sold as "RJ12") with a plug on one end, or crimp one.
+   4-conductor cords (6P4C) do not work.
+2. Strip about 10 mm of the jacket, strip and tin 3 mm of each wire.
+3. Solder the wires **in their flat order**, edge wire on pad 1. Either direction is fine: the pin-out is symmetric, and
+   a mirrored order only swaps A and B, which the firmware detects. Never cross two wires. The Fab layer shows the
+   usual colours (white, black, red, green, yellow, blue), for reference only.
+4. Put a cable tie through the two slots around the jacket, just behind the stripped end.
 
 ## Power
 
 - The motherboard supplies 5 V through the cord, limited by its 500 mA PTC. The screen module takes the 5 V and
   regulates its own 3.3 V. Its logic is driven at 3.3 V by the RP2040.
 - On the bench, USB-C powers the board through the Schottky D1, which keeps the cord's 5 V out of the USB host.
-  Unplug the RJ11 cord while flashing over USB: otherwise the USB also feeds the motherboard's 5 V rail through the cord.
+  Unplug the cord at the motherboard while flashing over USB: otherwise the USB also feeds the motherboard's 5 V rail through the cord.
 
 ## Flashing
 
@@ -96,9 +112,9 @@ The schematic is new. The PCB still holds the former passive board, which was li
 
 - J1 (screen), SW1-SW5 and TP2-TP6 kept the UUIDs they had in the old motherboard schematic. *Tools → Update PCB
   from Schematic* therefore keeps their footprints and placement.
-- FPC_HMI1 disappears. The RJ11 jack, the RP2040 and its parts arrive unplaced.
-- The 142 × 20 mm outline is too small for them as it is: the board has to grow, or the RJ11 jack has to go on the back.
+- FPC_HMI1 disappears. J2 (cord pads), the RP2040 and its parts arrive unplaced.
+- The 142 × 20 mm outline is too small for them as it is: the board has to grow.
+- Place J2 against the edge that faces the desk, with its dashed *board edge* line on the outline, so the cord leaves
+  straight over the edge. Keep the area between the pads and the edge free of parts (cable tie, wires).
 - Place the RP2040 decoupling capacitors next to each supply pin, keep a solid ground under the QFN, and keep the
   crystal and the QSPI flash close to the RP2040.
-- Check the RJ11 jack (EVERCOM 5301-6P6C, C3097716) against the Amphenol 54601 footprint it uses. Compare the drilling
-  with the part's datasheet.

@@ -53,8 +53,9 @@ shared/hmi_link/                 hmi_protocol.* (frames, CRC, UiModel packing), 
 
 ## The link (RS-485 over an RJ11 cord)
 
-The 12-pin FFC is replaced by a **6-conductor RJ11 cord (6P6C, sometimes sold as "RJ12")**. Each board has an
-RJ11 jack and an RS-485 transceiver: SP485EEN (5 V) on the motherboard, SP3485EN (3.3 V) on the HMI board; same
+The 12-pin FFC is replaced by a **6-conductor RJ11 cord (6P6C, sometimes sold as "RJ12")**. The motherboard has an
+RJ11 jack, the cord is soldered to the HMI board (it sits at 45° under the desk edge, see its README). Each board has an
+RS-485 transceiver: SP485EEN (5 V) on the motherboard, SP3485EN (3.3 V) on the HMI board; same
 pin-out, ±15 kV ESD on A/B, both JLCPCB *Basic* parts.
 
 | Pin | 1 | 2 | 3 | 4 | 5 | 6 |
@@ -68,7 +69,7 @@ pin-out, ±15 kV ESD on A/B, both JLCPCB *Basic* parts.
   has arrived for 150 ms, it inverts its UART pads (`gpio_set_inover` / `gpio_set_outover`); the link is up again
   within ~150 ms. Straight or reversed cords both work, with nothing to configure.
 - 4-conductor cords (6P4C) do **not** work: they carry neither pin 1 nor pin 6.
-- **Never plug the jacks into a telephone wall socket** (ringing voltage).
+- **Never plug the motherboard jack into a telephone wall socket** (ringing voltage).
 
 **Protocol** (`shared/hmi_link/hmi_protocol.h`): 250 000 baud 8N1 (exact on both MCUs), half duplex, the motherboard is
 the only master. Every 10 ms it sends a *State* frame (the screen content: screen, arrow, height, gauge, text numbers;

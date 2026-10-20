@@ -7,7 +7,7 @@
 
 namespace hmipins {
 
-// --- RS-485 transceiver U2 (SP3485EN) → RJ11 jack J2 → motherboard
+// --- RS-485 transceiver U2 (SP3485EN) → 6P6C cord soldered on J2 → motherboard
 constexpr uint8_t LINK_TX = 0;      // GP0 – UART0 TX → D
 constexpr uint8_t LINK_RX = 1;      // GP1 – UART0 RX ← R
 constexpr uint8_t LINK_DE = 2;      // GP2 – DE and /RE tied: HIGH = drive the bus
