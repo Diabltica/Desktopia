@@ -43,7 +43,7 @@ The screen module model (`RoundLCD.wrl`) shows the real UI, taken from a screens
 | Flash | U4 W25Q128JVSIQ (16 MB QSPI) | the firmware uses 2 MB |
 | 3.3 V | U3 XC6206P332 LDO, C1 / C2 | supplies the RP2040, flash and transceiver |
 | Link | J2 solder pads for the 6P6C cord, U2 SP3485EN (3.3 V RS-485), R1 120 Ω (not assembled) | UART0: GP0 TX, GP1 RX, GP2 DE + /RE |
-| USB | J3 USB-C (HRO TYPE-C-31-M-12), D1 SS14, R2 / R3 5.1k on CC, R4 / R5 22 Ω | bench flashing only |
+| USB | J3 USB-C (G-Switch GT-USB-7010ASV), D1 SS14, R2 / R3 5.1k on CC, R4 / R5 22 Ω | bench flashing only |
 | Boot / debug | SW6 BOOT (QSPI_SS through R6 1k), R7 10k RUN pull-up, TP7-TP10 SWD | no reset button: replug, or ground TP9 (RUN) |
 | Screen | J1 7-pin connector, TP2-TP6 | GC9A01 240×240 round LCD on SPI0 |
 | Buttons | SW1-SW5 Kailh Choc hot-swap sockets (PG1350) | to GND, internal pull-ups |
@@ -103,6 +103,11 @@ Every assembled part has its LCSC number in the `LCSC` and `jlcpcb PartNumber` f
 
 - Y1 is the Basic X322512MSB4SI (C9002). It is specified for a 20 pF load, hence the 33 pF capacitors C19 / C20.
 - The Kailh Choc hot-swap sockets (CPG135001S30, C5333465) are out of stock at JLCPCB: solder them by hand.
+- J3 is the G-Switch GT-USB-7010ASV (C2988369, $0.09). It replaces the HRO TYPE-C-31-M-12 ($0.19); the pins are the
+  same, the footprint is KiCad's `USB_C_Receptacle_G-Switch_GT-USB-7010ASV`.
+- U4 stays the W25Q128JVSIQ (16 MB) because it is a Basic part. The 2 MB and 4 MB Winbond parts are Extended at JLCPCB
+  and cost $1.0 to $1.4. With the $3 loading fee, they only pay off from about 4 boards per order.
+- The other extended parts are U1 (RP2040) and J3. Everything else is Basic.
 - Not assembled: R1 (termination, only for cords over ~5 m) and the test points. J1 takes the screen module's
   cable.
 
@@ -113,6 +118,7 @@ The schematic is new. The PCB still holds the former passive board, which was li
 - J1 (screen), SW1-SW5 and TP2-TP6 kept the UUIDs they had in the old motherboard schematic. *Tools → Update PCB
   from Schematic* therefore keeps their footprints and placement.
 - FPC_HMI1 disappears. J2 (cord pads), the RP2040 and its parts arrive unplaced.
+- J3 (USB-C) has a new footprint: G-Switch GT-USB-7010ASV.
 - The 142 × 20 mm outline is too small for them as it is: the board has to grow.
 - Place J2 against the edge that faces the desk, with its dashed *board edge* line on the outline, so the cord leaves
   straight over the edge. Keep the area between the pads and the edge free of parts (cable tie, wires).

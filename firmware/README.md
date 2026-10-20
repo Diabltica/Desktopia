@@ -102,9 +102,12 @@ Motherboard (`hardware/desktopia/desktopia.kicad_sch`):
 | I2C SDA / SCL | `SDA` / `SCL` | PD1 / PD0 | Wire |
 | ISP | `SCK` / `MOSI` / `MISO` | PB1 / PB2 / PB3 | J2 only |
 | Motor current alert | `I_ALERT` (U9-3, INA226) | PE6 / INT6 | D7, not used yet |
+| ToF data ready | `TOF_INT` (U6 GPIO1, through Q3) | PB4 / PCINT4 | D8, not used yet (the ToF is polled over I2C) |
 
-Free: PB0, PB4, PB5, PB7, PC7, PD5-PD7, PF0, PF1, PF4-PF7. The ToF GPIO1 only goes to test point TP14.
-I2C: VL53L1CB at `0x29` (`0x52` in 8-bit notation) behind the TXS0104E; INA226 current monitor U9 at `0x40`
+Free: PB0, PB5, PB7, PC7, PD5-PD7, PF0, PF1, PF4-PF7. The five external interrupts are taken: INT0 / INT1 = I2C,
+INT2 / INT3 = Serial1 (RS-485), INT6 = `I_ALERT`. `TOF_INT` uses a pin-change interrupt (PCINT4, not covered by
+`attachInterrupt()`). PB0, PB5 and PB7 keep theirs (PCINT0 / 5 / 7).
+I2C: VL53L1CB at `0x29` (`0x52` in 8-bit notation) behind the BSS138 level shifters Q1 / Q2; INA226 current monitor U9 at `0x40`
 (A0 = A1 = GND) on the 5 V side. It measures the motor supply across the 2 mΩ shunt R25 (±41 A full scale, 1.25 mA/bit
 with a calibration of 2048); this firmware does not read it yet.
 The 5 V sent to the HMI board goes through the PTC F1 (500 mA). R22 / R23 (4.7 kΩ) bias the bus when nobody drives
@@ -234,7 +237,7 @@ In the **motor** wire it is the average motor current. In the **supply** wire it
 2. **Motor decoupled** from the mechanism (or crank disengaged). First flash of the motherboard with a reduced PWM:
    `build_flags = -DMOTOR_PWM_MAX_PERCENT=25` in the environment being used. Connect the two boards with the RJ11 cord.
 3. The screen should show a plausible height that changes when a target is moved in front of the sensor.
-   Otherwise: `--.-` = silent sensor (check the 2.8 V rail and the level shifter), absurd value = adjust `TOF_HEIGHT_OFFSET_MM`.
+   Otherwise: `--.-` = silent sensor (check the 2.8 V sensor rail and the level shifters Q1 / Q2), absurd value = adjust `TOF_HEIGHT_OFFSET_MM`.
 4. Press **Up**: the motor must turn in the "up" direction **and** the displayed height must increase.
    A mismatch is detected after 15 mm of travel: **WRONG WAY** screen. Then fix
    `MOTOR_DIR_UP_LEVEL`/`MOTOR_DIR_DOWN_LEVEL` (motor reversed) or `TOF_HEIGHT_SIGN` (height reversed).
@@ -266,7 +269,7 @@ The INA226 current monitor is fitted but not read yet: everything relies on the 
 
 The boards have their own READMEs: [motherboard](../hardware/desktopia/README.md) and
 [HMI board](../hardware/desktopia_HMI/README.md). They cover the blocks, the connectors, the JLCPCB parts, the PCB work
-still to do and the known issues (TPS5430 ENA, no pull-down on `Mpwm` / `Mdir`).
+still to do and the known issues (TPS5430 ENA, 5 V loop to measure, VL53L1CB I/O mode).
 
 ## Assumptions to confirm
 

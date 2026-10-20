@@ -17590,7 +17590,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "TYPE-C-31-M-12"
+		(property "Value" "GT-USB-7010ASV"
 			(at 17.78 127 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -17601,7 +17601,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Connector_USB:USB_C_Receptacle_HRO_TYPE-C-31-M-12"
+		(property "Footprint" "Connector_USB:USB_C_Receptacle_G-Switch_GT-USB-7010ASV"
 			(at 25.4 147.32 0)
 			(hide yes)
 			(show_name no)
@@ -17612,7 +17612,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://datasheet.lcsc.com/lcsc/2204071530_G-Switch-GT-USB-7010ASV_C2988369.pdf"
 			(at 25.4 147.32 0)
 			(hide yes)
 			(show_name no)
@@ -17623,7 +17623,7 @@
 				)
 			)
 		)
-		(property "Description" "USB 2.0-only 16P Type-C Receptacle"
+		(property "Description" "USB 2.0 Type-C receptacle, 16 pins, SMD, right angle"
 			(at 25.4 147.32 0)
 			(hide yes)
 			(show_name no)
@@ -17634,7 +17634,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C165948"
+		(property "LCSC" "C2988369"
 			(at 25.4 147.32 0)
 			(hide yes)
 			(show_name no)
@@ -17645,7 +17645,7 @@
 				)
 			)
 		)
-		(property "jlcpcb PartNumber" "C165948"
+		(property "jlcpcb PartNumber" "C2988369"
 			(at 25.4 147.32 0)
 			(hide yes)
 			(show_name no)
