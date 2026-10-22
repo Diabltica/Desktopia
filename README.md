@@ -13,23 +13,25 @@ go back to three saved heights at the press of a button.
 
 ```mermaid
 flowchart LR
-    PSU[24 V power supply] -->|J7| MB
+    PSU[24 V power supply] -->|J1| MB
     subgraph MB[Motherboard - ATmega32U4]
         direction TB
         SHUNT[2 mΩ shunt + INA226]
+        SW[P-MOSFET supply switch]
         TOF[VL53L1CB height sensor]
     end
-    MB -->|J4: 24 V| DRV[Cytron MD10C motor driver]
-    MB -->|J5: DIR + PWM| DRV
+    MB -->|J5: switched 24 V| DRV[Cytron MD10C motor driver]
+    MB -->|J6: DIR + PWM + GND| DRV
     DRV --> MOTOR[Motor] --> GEAR[Gearbox] --> DESK[Desk]
     MB <-->|RJ11 cord: 5 V + RS-485| HMI[HMI board - RP2040<br/>round screen + 5 buttons]
 ```
 
 - The **motherboard** makes every decision. It reads the height (VL53L1CB), runs the state machine, drives the motor
-  driver (direction + PWM, with ramps) and stores the presets in its EEPROM.
+  driver (direction + PWM, with ramps) and stores the presets in its EEPROM. It also switches the driver's 24 V supply:
+  on for a move, off after 5 minutes without one, and off at once if the motor current goes over the limit (INA226).
 - The **HMI board** only displays what the motherboard sends and reports the button levels. It is powered by the
   motherboard through the RJ11 cord, which also carries the RS-485 link (250 kbaud, polled every 10 ms).
-- If the cord, the sensor or the firmware fails, the motor stops: see the protections in
+- If the cord, the sensor or the firmware fails, or the motor draws too much current, the motor stops: see the protections in
   [firmware/README.md](firmware/README.md#built-in-protections).
 
 ## Usage
@@ -72,5 +74,5 @@ The firmware of both boards can be tested on a PC without any hardware (`firmwar
 
 - Firmwares: build with no warnings; tested in the PC simulation only.
 - Schematics: ERC checked, netlists checked by script.
-- PCBs: **not yet updated** to the latest schematics (RJ11 link, RP2040 HMI board, power input, current sensor).
+- PCBs: **not yet updated** to the latest schematics (RJ11 link, RP2040 HMI board, power input, current sensor, motor supply switch).
 - Nothing has been tested on real boards yet.
