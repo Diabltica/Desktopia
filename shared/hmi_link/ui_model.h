@@ -32,6 +32,10 @@ enum class UiText : uint8_t {
   LoopStuck,          // loop was stuck
   NoLink,             // NO LINK
   CheckCable,         // check the cable
+  Overcurrent,        // OVERCURRENT
+  MotorCurrentHigh,   // motor current high
+  NoCurrentSense,     // NO CURRENT SENSE
+  Ina226NotAnswering, // INA226 not answering
   Count
 };
 

@@ -1,8 +1,8 @@
 #pragma once
 #include <stdint.h>
 #define _BV(b) (1 << (b))
-// Timer1 / ports used by motor.cpp
-extern volatile uint8_t TCCR1A, TCCR1B, PORTB;
+// Timer1 / ports used by motor.cpp (PORTD: driver supply switch)
+extern volatile uint8_t TCCR1A, TCCR1B, PORTB, PORTD;
 extern volatile uint16_t ICR1, OCR1B;
 #define COM1B1 5
 #define WGM10 0

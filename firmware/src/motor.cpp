@@ -10,9 +10,12 @@ static_assert(MOTOR_PWM_MIN_PERCENT >= 0 && MOTOR_PWM_MIN_PERCENT < MOTOR_PWM_MA
 static_assert(MOTOR_SOFT_START_MS > 0 && MOTOR_SOFT_STOP_MS > 0, "ramp times must be positive");
 static_assert(F_CPU / MOTOR_PWM_FREQ_HZ >= 100 && F_CPU / MOTOR_PWM_FREQ_HZ <= 65536UL, "MOTOR_PWM_FREQ_HZ out of range (245 Hz .. 160 kHz)");
 static_assert(MOTOR_PWM_FREQ_HZ <= 20000UL, "MOTOR_PWM_FREQ_HZ above the 20 kHz rating of the MD10C R3 driver");
+static_assert(MOTOR_POWER_SETTLE_MS >= 30, "Q5 needs ~15 ms to switch the driver supply on, the driver a few more");
+static_assert(MOTOR_POWER_IDLE_OFF_MS >= 1000, "MOTOR_POWER_IDLE_OFF_MS too short: the supply would toggle between moves");
 
 namespace {
 volatile bool g_failsafe = false;
+volatile bool g_cutLatched = false;   // motorHardCut() ran: no PWM, no supply until Motor aligns its state
 
 constexpr uint32_t kMaxPermille = (uint32_t)MOTOR_PWM_MAX_PERCENT * 10UL;
 constexpr uint32_t kMaxQ10 = kMaxPermille << 10;
@@ -20,9 +23,15 @@ constexpr uint32_t kRateUp = kMaxQ10 / MOTOR_SOFT_START_MS;      // Q10-permille
 constexpr uint32_t kRateDown = kMaxQ10 / MOTOR_SOFT_STOP_MS;
 }  // namespace
 
-void motorFailsafeCut() {
+void motorHardCut() {
   TCCR1A &= (uint8_t) ~_BV(COM1B1);      // disconnect OC1B from the pin
   PORTB &= (uint8_t) ~_BV(PORTB6);       // and force it low
+  PORTD &= (uint8_t) ~_BV(pins::MOTOR_POWER_PORT_BIT);   // then open Q5 (~20 ms): the driver is isolated
+  g_cutLatched = true;                   // the loop may still be inside Motor::update(): it must not undo this
+}
+
+void motorFailsafeCut() {
+  motorHardCut();
   g_failsafe = true;
 }
 
@@ -31,6 +40,8 @@ void Motor::begin() {
   digitalWrite(pins::MOTOR_PWM, LOW);
   pinMode(pins::MOTOR_DIR, OUTPUT);
   setDirectionPin(Direction::Down);
+  pinMode(pins::MOTOR_POWER, OUTPUT);
+  setPower(false, millis());
 
   _top = (uint16_t)(F_CPU / MOTOR_PWM_FREQ_HZ - 1);
   ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
@@ -45,11 +56,21 @@ void Motor::begin() {
   _wasMoving = false;
   _lastUpdate = millis();
   _stoppedAt = _lastUpdate - MOTOR_REVERSE_PAUSE_MS;
+  _lastActive = _lastUpdate;
 }
 
 void Motor::setDirectionPin(Direction d) {
   digitalWrite(pins::MOTOR_DIR, d == Direction::Up ? MOTOR_DIR_UP_LEVEL : MOTOR_DIR_DOWN_LEVEL);
   _appliedDir = d;
+}
+
+void Motor::setPower(bool on, uint32_t nowMs) {
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+    if (g_cutLatched) on = false;                  // checked and written with interrupts off: no race with the cut
+    digitalWrite(pins::MOTOR_POWER, on ? HIGH : LOW);
+  }
+  if (on && !_powered) _poweredAt = nowMs;
+  _powered = on;
 }
 
 void Motor::applyDuty() {
@@ -59,7 +80,7 @@ void Motor::applyDuty() {
     if (counts > _top) counts = _top;
   }
   ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-    if (counts == 0) {
+    if (counts == 0 || g_cutLatched) {
       // A fast-PWM compare value of 0 still emits a 1-tick pulse: disconnect the pin instead.
       TCCR1A &= (uint8_t) ~_BV(COM1B1);
       PORTB &= (uint8_t) ~_BV(PORTB6);
@@ -88,30 +109,36 @@ void Motor::emergencyStop() {
   applyDuty();
 }
 
+void Motor::cutPower() {
+  emergencyStop();                                 // PWM low first: the bridge stops drawing from the supply
+  setPower(false, millis());
+  g_cutLatched = false;                            // state aligned with the hardware: a new request may start again
+}
+
 bool Motor::consumeFailsafeFlag() {
   bool f;
   ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
     f = g_failsafe;
     g_failsafe = false;
   }
-  if (f) {
-    _hasRequest = false;
-    _dutyQ10 = 0;
-    _wasMoving = false;
-    _stoppedAt = millis();
-    applyDuty();
-  }
+  if (f) cutPower();                               // the interrupt already did it in hardware: align the state
   return f;
 }
 
 void Motor::update(uint32_t nowMs) {
+  if (g_cutLatched) cutPower();                    // an interrupt cut the motor: align the state, wait for a new request
   uint32_t dt = nowMs - _lastUpdate;
   if (dt == 0) return;
   _lastUpdate = nowMs;
   if (dt > 100) dt = 100;
 
+  // Driver supply: on with the first request, PWM only once it has settled.
+  if (_hasRequest || _dutyQ10 != 0) _lastActive = nowMs;
+  if (_hasRequest && !_powered) setPower(true, nowMs);
+  bool supplyReady = _powered && (uint32_t)(nowMs - _poweredAt) >= MOTOR_POWER_SETTLE_MS;
+
   uint32_t targetQ = 0;
-  if (_hasRequest) {
+  if (_hasRequest && supplyReady) {
     if (_reqDir == _appliedDir) {
       targetQ = (uint32_t)_targetPermille << 10;
     } else if (_dutyQ10 == 0 && (uint32_t)(nowMs - _stoppedAt) >= MOTOR_REVERSE_PAUSE_MS) {
@@ -135,4 +162,9 @@ void Motor::update(uint32_t nowMs) {
     _stoppedAt = nowMs;
   }
   applyDuty();
+
+  // Driver supply off after a long idle time: only with the PWM at 0, so Q5 never opens under load.
+  if (_powered && _dutyQ10 == 0 && !_hasRequest && (uint32_t)(nowMs - _lastActive) >= MOTOR_POWER_IDLE_OFF_MS) {
+    setPower(false, nowMs);
+  }
 }

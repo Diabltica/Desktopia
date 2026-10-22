@@ -28,6 +28,16 @@ void pinMode(uint8_t pin, uint8_t mode);
 void digitalWrite(uint8_t pin, uint8_t level);
 int digitalRead(uint8_t pin);
 
+// External interrupts, Arduino Micro / Leonardo numbering (variants/leonardo/pins_arduino.h)
+#define NOT_AN_INTERRUPT -1
+#define CHANGE 1
+#define FALLING 2
+#define RISING 3
+#define digitalPinToInterrupt(p) ((p) == 0 ? 2 : ((p) == 1 ? 3 : ((p) == 2 ? 1 : ((p) == 3 ? 0 : ((p) == 7 ? 4 : NOT_AN_INTERRUPT)))))
+void attachInterrupt(uint8_t interruptNum, void (*userFunc)(void), int mode);
+inline void noInterrupts() {}
+inline void interrupts() {}
+
 struct SerialMock {
   void begin(unsigned long) {}
   size_t print(const char* s) { fputs(s, stdout); return 0; }

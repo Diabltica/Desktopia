@@ -31,6 +31,10 @@ const char* const kTexts[] = {
   "loop was stuck",
   "NO LINK",
   "check the cable",
+  "OVERCURRENT",
+  "motor current high",
+  "NO CURRENT SENSE",
+  "INA226 not answering",
 };
 static_assert(sizeof(kTexts) / sizeof(kTexts[0]) == (unsigned)UiText::Count, "one string per UiText entry");
 }  // namespace

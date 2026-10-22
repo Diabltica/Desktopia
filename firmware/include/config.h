@@ -11,7 +11,7 @@
 #endif
 
 /* ---------------------------------------------------------------------------
- *  Motor (DIR + PWM on J5)
+ *  Motor (DIR + PWM on J6)
  * ------------------------------------------------------------------------- */
 // Level written on the DIR pin to move the desk UP / DOWN.
 // Swap the two lines if the motor driver turns the other way.
@@ -95,7 +95,33 @@
 #endif
 
 /* ---------------------------------------------------------------------------
- *  Safety nets (the INA226 current monitor is not read yet, so everything relies on the ToF)
+ *  Motor driver supply (Q5 high-side switch on J5) and motor current (INA226 U6, 2 mOhm shunt R23)
+ * ------------------------------------------------------------------------- */
+#ifndef MOTOR_POWER_SETTLE_MS
+#define MOTOR_POWER_SETTLE_MS      100    // supply switched on → first PWM: Q5 soft start (~15 ms) + driver start-up
+#endif
+#ifndef MOTOR_POWER_IDLE_OFF_MS
+#define MOTOR_POWER_IDLE_OFF_MS    300000UL   // motor unused for this long → driver supply cut (5 min)
+#endif
+#ifndef MOTOR_CURRENT_LIMIT_MA
+#define MOTOR_CURRENT_LIMIT_MA     8000   // INA226 alert threshold: PWM and driver supply cut at once (INT6).
+                                          // Measure the normal current (DEBUG_SERIAL logs it) and set ~1.5x its peak
+#endif
+#ifndef CURRENT_MONITOR_REQUIRED
+#define CURRENT_MONITOR_REQUIRED   1      // 1: no movement while the INA226 does not answer
+#endif
+#ifndef INA226_I2C_ADDR
+#define INA226_I2C_ADDR            0x40   // A0 = A1 = GND
+#endif
+#ifndef INA226_SHUNT_MICROOHM
+#define INA226_SHUNT_MICROOHM      2000   // R23
+#endif
+#ifndef CURRENT_MONITOR_RETRY_MS
+#define CURRENT_MONITOR_RETRY_MS   1000   // re-init attempts while the INA226 does not answer
+#endif
+
+/* ---------------------------------------------------------------------------
+ *  Safety nets (ToF based; the motor current has its own cut, see above)
  * ------------------------------------------------------------------------- */
 #ifndef MOVE_TIMEOUT_MS
 #define MOVE_TIMEOUT_MS            60000UL  // maximum duration of one movement
@@ -156,7 +182,7 @@
 #endif
 
 /* ---------------------------------------------------------------------------
- *  I2C bus (VL53L1CB only)
+ *  I2C bus (VL53L1CB, INA226)
  * ------------------------------------------------------------------------- */
 #ifndef I2C_CLOCK_HZ
 #define I2C_CLOCK_HZ               400000UL

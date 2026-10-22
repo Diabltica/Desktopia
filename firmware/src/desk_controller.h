@@ -1,6 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include "buttons.h"
+#include "current_monitor.h"
 #include "hmi_link.h"
 #include "motor.h"
 #include "presets.h"
@@ -13,11 +14,13 @@
 //  Idle ──preset short press──▶ GotoPreset ──target reached / any button (Up + Down)──▶ Idle, inputs ignored until release
 //  Idle ──preset held 400 ms──▶ Saving ──held 2 s: save──▶ Idle (+ success overlay) / released: cancel
 //  any state ──sensor lost while moving, stall, wrong way, timeout, watchdog──▶ Fault ──cleared──▶ Idle
+//  any state ──motor current alert (INA226, driver supply already cut by INT6)──▶ Fault ──cleared──▶ Idle
 //  any state ──HMI link lost (cord unplugged: the HMI board is unpowered)──▶ Fault ──link back──▶ Idle (no fault screen)
+// The motor module switches the driver supply on for a move and off after MOTOR_POWER_IDLE_OFF_MS of rest.
 class DeskController {
  public:
-  DeskController(HmiLink& link, Buttons& buttons, TofSensor& tof, Motor& motor, Presets& presets)
-      : _link(link), _buttons(buttons), _tof(tof), _motor(motor), _presets(presets) {}
+  DeskController(HmiLink& link, Buttons& buttons, TofSensor& tof, Motor& motor, Presets& presets, CurrentMonitor& current)
+      : _link(link), _buttons(buttons), _tof(tof), _motor(motor), _presets(presets), _current(current) {}
 
   // watchdogReset: the previous run ended in a watchdog reset.
   void begin(uint32_t nowMs, bool watchdogReset);
@@ -28,7 +31,7 @@ class DeskController {
  private:
   enum class State : uint8_t { Idle, Manual, GotoPreset, Saving, Fault };
   enum class Overlay : uint8_t { None, Notice, Success };
-  enum class FaultCode : uint8_t { None, Link, Sensor, WrongWay, Stall, Timeout, Watchdog };
+  enum class FaultCode : uint8_t { None, Link, Sensor, WrongWay, Stall, Timeout, Watchdog, Overcurrent, CurrentSense };
 
   void handleEvent(const ButtonEvent& ev, uint32_t nowMs);
 
@@ -44,7 +47,9 @@ class DeskController {
   void finishSaving(uint32_t nowMs);
 
   void beginMove(uint32_t nowMs);
+  bool currentMonitorReady(uint32_t nowMs);             // false = a notice was shown, no move
   bool monitorMove(int16_t heightMm, uint32_t nowMs);   // false = a fault was raised
+  void logCurrent(uint32_t nowMs);
   void enterFault(FaultCode code, uint32_t nowMs);
   void showNotice(UiText title, UiText subtitle, uint32_t nowMs);
   void refreshUi(uint32_t nowMs);
@@ -58,6 +63,7 @@ class DeskController {
   TofSensor& _tof;
   Motor& _motor;
   Presets& _presets;
+  CurrentMonitor& _current;
 
   State _state = State::Idle;
   FaultCode _fault = FaultCode::None;
@@ -74,6 +80,7 @@ class DeskController {
   int16_t _progressHeight = 0;
   uint16_t _stallMs = 0;
   uint32_t _lastMonitor = 0;
+  uint32_t _lastCurrentLog = 0;
 
   // preset saving
   Button _saveButton = Button::Preset1;

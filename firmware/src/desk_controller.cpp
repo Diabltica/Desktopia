@@ -12,6 +12,7 @@ static_assert(PRESET_COUNT >= 1 && PRESET_COUNT <= 3, "three preset buttons are 
 
 namespace {
 constexpr bool kTofBypass = TOF_BYPASS != 0;
+constexpr bool kCurrentMonitorRequired = CURRENT_MONITOR_REQUIRED != 0;
 constexpr uint16_t kMaxPermille = MOTOR_PWM_MAX_PERCENT * 10;
 constexpr uint16_t kMinPermille = MOTOR_PWM_MIN_PERCENT * 10;
 
@@ -48,11 +49,21 @@ void DeskController::update(uint32_t nowMs) {
   _buttons.update(_link, nowMs);
   _tof.allowReinit(!_motor.isRunning());
   _tof.update(nowMs);
+  _current.allowReinit(!_motor.isRunning());
+  _current.update(nowMs);
   _motor.update(nowMs);
 
   // Safety checks that apply in every state
+  if (_current.consumeAlert()) {                     // INT6 has already cut the PWM and the driver supply
+    _motor.cutPower();
+    enterFault(FaultCode::Overcurrent, nowMs);
+  }
+  if (kCurrentMonitorRequired && !_current.present() && _motor.isRunning() && _state != State::Fault) {
+    enterFault(FaultCode::CurrentSense, nowMs);      // no current protection any more: stop
+  }
   if (_motor.consumeFailsafeFlag() && _state != State::Fault) enterFault(FaultCode::Watchdog, nowMs);
   if (_buttons.ioError() && _fault != FaultCode::Link) enterFault(FaultCode::Link, nowMs);   // cannot see a release → stop
+  logCurrent(nowMs);
 
   ButtonEvent ev;
   while (_buttons.nextEvent(ev)) handleEvent(ev, nowMs);
@@ -141,7 +152,32 @@ void DeskController::beginMove(uint32_t nowMs) {
   _overlay = Overlay::None;
 }
 
+// The INA226 is the only thing that cuts the motor on an overcurrent: no move without it (CURRENT_MONITOR_REQUIRED).
+bool DeskController::currentMonitorReady(uint32_t nowMs) {
+  if (!kCurrentMonitorRequired || _current.present()) return true;
+  showNotice(UiText::NoCurrentSense, UiText::Ina226NotAnswering, nowMs);
+  return false;
+}
+
+void DeskController::logCurrent(uint32_t nowMs) {
+#if DEBUG_SERIAL
+  if (!_motor.isPowered() || (uint32_t)(nowMs - _lastCurrentLog) < 250) return;
+  _lastCurrentLog = nowMs;
+  int32_t ma;
+  if (_current.readCurrentMa(ma)) {
+    DBG(F("motor mA "));
+    DBGLN(ma);
+  }
+#else
+  (void)nowMs;
+#endif
+}
+
 void DeskController::startManual(Button b, uint32_t nowMs) {
+  if (!currentMonitorReady(nowMs)) {
+    _buttons.consume(b);
+    return;
+  }
   if (kTofBypass) {                                                            // bench test: no height, no end stops
     _holdButton = b;
     _dir = (b == Button::Up) ? Motor::Direction::Up : Motor::Direction::Down;
@@ -225,6 +261,7 @@ void DeskController::startGoto(uint8_t presetIndex, uint32_t nowMs) {
     showNotice(UiText::NoPreset, UiText::HoldToSave, nowMs);
     return;
   }
+  if (!currentMonitorReady(nowMs)) return;
   if (!_tof.hasFreshHeight(nowMs)) {
     showNotice(UiText::NoSensor, UiText::HeightUnknown, nowMs);
     return;
@@ -360,6 +397,7 @@ void DeskController::updateFault(uint32_t nowMs) {
   bool cleared = true;
   if (_fault == FaultCode::Link) cleared = !_buttons.ioError() && _link.connectedForMs(nowMs) >= HMI_LINK_SETTLE_MS;
   else if (_fault == FaultCode::Sensor) cleared = _tof.hasFreshHeight(nowMs);
+  else if (_fault == FaultCode::CurrentSense) cleared = _current.present();
 
   bool shownLongEnough = _fault == FaultCode::Link || (uint32_t)(nowMs - _stateSince) >= FAULT_MIN_DISPLAY_MS;
   if (cleared && shownLongEnough && !_buttons.anyPressed()) {
@@ -446,6 +484,14 @@ void DeskController::refreshUi(uint32_t nowMs) {
         case FaultCode::Watchdog:
           _ui.title = UiText::Watchdog;
           _ui.subtitle = UiText::LoopStuck;
+          break;
+        case FaultCode::Overcurrent:
+          _ui.title = UiText::Overcurrent;
+          _ui.subtitle = UiText::MotorCurrentHigh;
+          break;
+        case FaultCode::CurrentSense:
+          _ui.title = UiText::NoCurrentSense;
+          _ui.subtitle = UiText::Ina226NotAnswering;
           break;
 
         case FaultCode::Link:

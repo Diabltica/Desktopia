@@ -1,23 +1,27 @@
 #pragma once
 #include <Arduino.h>
 
-// DC motor driven through a DIR pin and a hardware PWM pin (Timer1 / OC1B).
+// DC motor driven through a DIR pin and a hardware PWM pin (Timer1 / OC1B), on a switched driver supply (Q5).
 //  - duty is capped at MOTOR_PWM_MAX_PERCENT, whatever the caller asks;
 //  - every start is a soft start (linear ramp), every slow-down / stop is a soft stop;
-//  - the DIR pin only changes while the duty is 0 and after MOTOR_REVERSE_PAUSE_MS.
+//  - the DIR pin only changes while the duty is 0 and after MOTOR_REVERSE_PAUSE_MS;
+//  - the driver supply comes on with the first request; the PWM only starts MOTOR_POWER_SETTLE_MS later;
+//  - the driver supply goes off after MOTOR_POWER_IDLE_OFF_MS without any request, always with the duty at 0.
 class Motor {
  public:
   enum class Direction : uint8_t { Up, Down };
 
-  void begin();                                       // outputs low, Timer1 configured – call first thing in setup()
-  void update(uint32_t nowMs);                        // integrates the ramp: call every loop
+  void begin();                                       // outputs low, supply off, Timer1 configured – call first in setup()
+  void update(uint32_t nowMs);                        // integrates the ramp, runs the supply: call every loop
 
   void run(Direction dir, uint16_t targetPermille);   // 0..1000, clamped to the maximum; 0 = soft stop
   void stop();                                        // soft stop
   void emergencyStop();                               // duty 0 right now, no ramp
+  void cutPower();                                    // duty 0 and driver supply off right now (current alert)
 
   bool isRunning() const { return _dutyQ10 != 0 || _hasRequest; }
   bool isStopped() const { return !isRunning(); }
+  bool isPowered() const { return _powered; }
   Direction direction() const { return _appliedDir; }
   uint16_t dutyPermille() const { return (uint16_t)(_dutyQ10 >> 10); }
 
@@ -27,6 +31,7 @@ class Motor {
  private:
   void applyDuty();
   void setDirectionPin(Direction d);
+  void setPower(bool on, uint32_t nowMs);
 
   uint32_t _dutyQ10 = 0;        // current duty in permille x 1024
   uint16_t _targetPermille = 0;
@@ -34,10 +39,14 @@ class Motor {
   Direction _appliedDir = Direction::Down;
   bool _hasRequest = false;
   bool _wasMoving = false;
+  bool _powered = false;
   uint32_t _lastUpdate = 0;
   uint32_t _stoppedAt = 0;
+  uint32_t _poweredAt = 0;
+  uint32_t _lastActive = 0;     // last time a request was pending or the duty was not 0
   uint16_t _top = 0;            // Timer1 TOP for MOTOR_PWM_FREQ_HZ
 };
 
-// Cuts the PWM output using register writes only: safe to call from an interrupt.
-void motorFailsafeCut();
+// Register writes only, safe to call from an interrupt:
+void motorHardCut();            // PWM output low and driver supply off, held off until the next Motor::update()
+void motorFailsafeCut();        // the same, flagged for consumeFailsafeFlag() (watchdog interrupt)

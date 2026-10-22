@@ -1,11 +1,12 @@
 // Host-side simulation bench for the Desktopia firmwares.
 // Both boards run in the same process, from their real sources:
-//   motherboard (ATmega32U4): buttons, hmi_link, motor, presets, tof_sensor, desk_controller, watchdog
+//   motherboard (ATmega32U4): buttons, hmi_link, motor, presets, tof_sensor, current_monitor, desk_controller, watchdog
 //   HMI board (RP2040):        hmi_app, display, gc9a01, ui_text
 //   both:                      shared/hmi_link/hmi_protocol
-// against mocks of the Arduino cores, a simulated desk, a noisy ToF sensor, an RS-485 bus (cord plugged / unplugged,
-// data pair cut, A/B swapped by a reversed cord, corrupted bytes) and a GC9A01 emulator that rebuilds the screen
-// pixel by pixel. The two cores of the RP2040 are run one after the other at every simulated millisecond.
+// against mocks of the Arduino cores, a simulated desk, a noisy ToF sensor, the switched driver supply (Q5), an INA226
+// with its ALERT line on INT6, an RS-485 bus (cord plugged / unplugged, data pair cut, A/B swapped by a reversed cord,
+// corrupted bytes) and a GC9A01 emulator that rebuilds the screen pixel by pixel. The two cores of the RP2040 are run
+// one after the other at every simulated millisecond.
 #include <Arduino.h>
 #include <Wire.h>
 #include <SPI.h>
@@ -21,6 +22,7 @@
 #include "board_pins.h"
 #include "config.h"
 #include "buttons.h"
+#include "current_monitor.h"
 #include "hmi_link.h"
 #include "motor.h"
 #include "presets.h"
@@ -40,8 +42,11 @@ static uint32_t g_now = 0;
 static bool g_delayRunsClock = true;                // false while the HMI board boots in the background
 static uint8_t g_pinLevel[64];
 static uint8_t g_pinMode[64];
-volatile uint8_t TCCR1A, TCCR1B, PORTB;
+volatile uint8_t TCCR1A, TCCR1B, PORTB, PORTD;
 volatile uint16_t ICR1, OCR1B;
+static void (*g_isr[8])() = {nullptr};             // attachInterrupt() table, by interrupt number
+static int g_isrMode[8];
+static unsigned g_supplyCutUnderLoad = 0;           // driver supply switched off by the loop with the PWM running
 SPIClass SPI;
 TwoWire Wire;
 EEPROMClass EEPROM;
@@ -54,6 +59,18 @@ unsigned long millis() { return g_now; }
 void delay(unsigned long ms) { if (g_delayRunsClock) g_now += (uint32_t)ms; }
 void delayMicroseconds(unsigned int) {}
 void pinMode(uint8_t p, uint8_t m) { g_pinMode[p] = m; }
+void attachInterrupt(uint8_t n, void (*f)(), int mode) { if (n < 8) { g_isr[n] = f; g_isrMode[n] = mode; } }
+
+static double pwmDuty() { return ((TCCR1A & _BV(COM1B1)) && ICR1) ? (double)OCR1B / ICR1 : 0.0; }
+static bool supplySwitchOn() { return PORTD & _BV(pins::MOTOR_POWER_PORT_BIT); }   // Q5 gate driven (MOTOR_PWR high)
+
+// I_ALERT (PE6 / INT6): open drain, pulled up by R25. A falling edge runs the handler attached to INT6.
+static void setAlertLine(bool low) {
+  uint8_t old = g_pinLevel[pins::I_ALERT];
+  g_pinLevel[pins::I_ALERT] = low ? LOW : HIGH;
+  int n = digitalPinToInterrupt(pins::I_ALERT);
+  if (old == HIGH && low && n >= 0 && g_isr[n] && (g_isrMode[n] == FALLING || g_isrMode[n] == CHANGE)) g_isr[n]();
+}
 
 struct Lcd;
 static Lcd* g_lcd = nullptr;
@@ -66,6 +83,13 @@ void digitalWrite(uint8_t p, uint8_t v) {
   if (p == pins::MOTOR_PWM) {
     if (v) PORTB |= _BV(PORTB6); else PORTB &= (uint8_t)~_BV(PORTB6);
   }
+  if (p == pins::MOTOR_POWER) {
+    if (v) PORTD |= _BV(pins::MOTOR_POWER_PORT_BIT);
+    else {
+      if (supplySwitchOn() && pwmDuty() > 0) g_supplyCutUnderLoad++;
+      PORTD &= (uint8_t)~_BV(pins::MOTOR_POWER_PORT_BIT);
+    }
+  }
   if (p == hmipins::LCD_CS && v && !old) lcdCsEdge();
   if (p == hmipins::LCD_RST) lcdResetLine(v != 0);
 }
@@ -73,7 +97,7 @@ int digitalRead(uint8_t p) { return g_pinLevel[p]; }
 
 // The two firmwares share the pin array: their pins must not overlap.
 static bool pinsDisjoint() {
-  const uint8_t mb[] = {pins::MOTOR_DIR, pins::MOTOR_PWM, pins::RS485_DE};
+  const uint8_t mb[] = {pins::MOTOR_DIR, pins::MOTOR_PWM, pins::MOTOR_POWER, pins::I_ALERT, pins::RS485_DE};
   const uint8_t hmiPins[] = {hmipins::LINK_DE, hmipins::BTN_UP, hmipins::BTN_DOWN, hmipins::BTN_PRESET1, hmipins::BTN_PRESET2,
                              hmipins::BTN_PRESET3, hmipins::LCD_CS, hmipins::LCD_DC, hmipins::LCD_RST};
   for (uint8_t a : mb) for (uint8_t b : hmiPins) if (a == b) return false;
@@ -233,7 +257,78 @@ struct SimUart : public Stream {
 };
 
 // ------------------------------------------------------------------------------------------------
-//  ToF simulation (the I2C bus only carries the VL53L1CB now)
+//  INA226 (U6) across the 2 mOhm shunt R23: averaged conversions, current register, shunt over-voltage alert
+//  (latched or not), Mask / Enable read clearing the latch, reset to the power-on defaults.
+// ------------------------------------------------------------------------------------------------
+struct SimIna {
+  bool present = true;
+  uint16_t config = 0x4127, cal = 0, mask = 0, limit = 0;
+  uint8_t ptr = 0;
+  bool aff = false;                                  // alert function flag
+  int16_t shunt = 0, current = 0;
+  double sumA = 0;
+  uint32_t sumMs = 0, convUs = 0;
+
+  void powerOnReset() {
+    config = 0x4127; cal = 0; mask = 0; limit = 0; aff = false; shunt = current = 0; sumA = 0; sumMs = 0; convUs = 0;
+    setAlertLine(false);
+  }
+  uint32_t periodUs() const {                        // averages x (bus + shunt conversion times)
+    static const uint16_t kCt[8] = {140, 204, 332, 588, 1100, 2116, 4156, 8244};
+    static const uint16_t kAvg[8] = {1, 4, 16, 64, 128, 256, 512, 1024};
+    return (uint32_t)kAvg[(config >> 9) & 7] * (kCt[(config >> 6) & 7] + kCt[(config >> 3) & 7]);
+  }
+  bool alertActive() const { return aff && (mask & 0xFC00); }   // APOL = 0: active low
+  void step1ms(double amps) {
+    if (!present || (config & 7) != 7) return;       // only the continuous mode is modelled
+    sumA += amps; sumMs++; convUs += 1000;
+    if (convUs < periodUs()) return;
+    convUs -= periodUs();
+    double v = std::lround(sumA / sumMs * 0.002 / 2.5e-6);    // 2 mOhm, 2.5 uV steps
+    sumA = 0; sumMs = 0;
+    shunt = (int16_t)std::max(-32768.0, std::min(32767.0, v));
+    current = (int16_t)((int32_t)shunt * cal / 2048);
+    bool over = (mask & 0x8000) && shunt > (int16_t)limit;
+    if (mask & 0x0001) { if (over) aff = true; }     // LEN: stays set until Mask / Enable is read
+    else aff = over;
+    setAlertLine(alertActive());                     // a falling edge runs the INT6 handler right here
+  }
+  uint16_t read() {
+    switch (ptr) {
+      case 0x00: return config;
+      case 0x01: return (uint16_t)shunt;
+      case 0x02: return 19200;                       // 24 V bus, 1.25 mV steps
+      case 0x04: return (uint16_t)current;
+      case 0x05: return cal;
+      case 0x06: {
+        uint16_t v = (uint16_t)(mask | (aff ? 0x0010 : 0) | 0x0008);
+        if (mask & 0x0001) { aff = false; setAlertLine(false); }
+        return v;
+      }
+      case 0x07: return limit;
+      case 0xFE: return 0x5449;
+      case 0xFF: return 0x2260;
+    }
+    return 0;
+  }
+  void write(uint8_t reg, uint16_t v) {
+    switch (reg) {
+      case 0x00: if (v & 0x8000) powerOnReset(); else config = v; break;
+      case 0x05: cal = v & 0x7FFF; break;
+      case 0x06: mask = v & 0xFC03; setAlertLine(alertActive()); break;
+      case 0x07: limit = v; break;
+    }
+  }
+} g_ina;
+
+// What the firmware is expected to program (4 averages of 1.1 ms conversions, 1.25 mA current LSB, SOL latched)
+static const uint16_t kInaConfig = 0x4327;
+static const uint16_t kInaCal = (uint16_t)(5120000000ULL / (1250ULL * INA226_SHUNT_MICROOHM));
+static const uint16_t kInaLimit = (uint16_t)((uint32_t)MOTOR_CURRENT_LIMIT_MA * INA226_SHUNT_MICROOHM / 2500UL);
+static const uint16_t kInaMask = 0x8001;
+
+// ------------------------------------------------------------------------------------------------
+//  I2C bus: VL53L1CB (its registers go through the mocked ST driver below) and INA226
 // ------------------------------------------------------------------------------------------------
 static bool g_tofPresent = true;
 
@@ -241,9 +336,23 @@ void TwoWire::beginTransmission(uint8_t a) { _addr = a; _txLen = 0; }
 size_t TwoWire::write(uint8_t b) { if (_txLen < 8) _tx[_txLen++] = b; return 1; }
 uint8_t TwoWire::endTransmission(uint8_t) {
   if (_addr == ((TOF_I2C_ADDR_8BIT >> 1) & 0x7F)) return g_tofPresent ? 0 : 2;
+  if (_addr == INA226_I2C_ADDR) {
+    if (!g_ina.present) return 2;
+    if (_txLen >= 1) g_ina.ptr = _tx[0];
+    if (_txLen == 3) g_ina.write(_tx[0], (uint16_t)((_tx[1] << 8) | _tx[2]));
+    return 0;
+  }
   return 2;
 }
-uint8_t TwoWire::requestFrom(uint8_t, uint8_t) { _rxLen = 0; _rxPos = 0; return 0; }
+uint8_t TwoWire::requestFrom(uint8_t a, uint8_t n) {
+  _rxLen = 0; _rxPos = 0;
+  if (a == INA226_I2C_ADDR && g_ina.present) {
+    uint16_t v = g_ina.read();
+    _rx[0] = (uint8_t)(v >> 8); _rx[1] = (uint8_t)v;
+    _rxLen = n < 2 ? n : 2;
+  }
+  return _rxLen;
+}
 int TwoWire::read() { return _rxPos < _rxLen ? _rx[_rxPos++] : -1; }
 int TwoWire::available() { return _rxLen - _rxPos; }
 
@@ -271,6 +380,7 @@ void simTofClear() { g_tof.ready = false; }
 // ------------------------------------------------------------------------------------------------
 static const double kMaxDuty = MOTOR_PWM_MAX_PERCENT / 100.0;
 static const double kMinDuty = MOTOR_PWM_MIN_PERCENT / 100.0;
+static const uint32_t kQ5RiseMs = 15;               // Q5 soft start (C21 Miller capacitor, R21 / R20): driver supply up
 static const uint8_t kButtonPin[5] = {hmipins::BTN_UP, hmipins::BTN_DOWN, hmipins::BTN_PRESET1, hmipins::BTN_PRESET2, hmipins::BTN_PRESET3};
 
 struct World {
@@ -288,8 +398,16 @@ struct World {
   std::mt19937 rng{12345};
   unsigned pwmStuckHigh = 0;
   double maxDuty = 0;
+  // driver supply (Q5) and motor current, seen by the INA226 on the 24 V side
+  double runA = 4.0;                 // supply current at MOTOR_PWM_MAX_PERCENT, normal load
+  double jamA = 4.0;                 // the same with the desk jammed (default: the drive slips, no extra current)
+  double amps = 0;
+  bool supplyWasOn = false;
+  uint32_t supplyOnAt = 0;
+  unsigned pwmWithoutSupply = 0;
 
-  double duty() const { return ((TCCR1A & _BV(COM1B1)) && ICR1) ? (double)OCR1B / ICR1 : 0.0; }
+  double duty() const { return pwmDuty(); }
+  bool supplyReady() const { return supplySwitchOn() && g_now - supplyOnAt >= kQ5RiseMs; }
   bool dirUp() const { return g_pinLevel[pins::MOTOR_DIR] == MOTOR_DIR_UP_LEVEL; }
   double gauss() { std::normal_distribution<double> d(0.0, 1.0); return d(rng); }
   double uni() { std::uniform_real_distribution<double> d(0.0, 1.0); return d(rng); }
@@ -305,13 +423,19 @@ struct World {
       if ((int32_t)(g_now - bounceUntil[b]) < 0) v = uni() < 0.5;
       g_pinLevel[kButtonPin[b]] = v ? LOW : HIGH;
     }
-    // motor -> desk
+    // driver supply -> motor -> desk
+    bool on = supplySwitchOn();
+    if (on && !supplyWasOn) supplyOnAt = g_now;
+    supplyWasOn = on;
     double d = duty();
     if (d > maxDuty) maxDuty = d;
     if (!(TCCR1A & _BV(COM1B1)) && (PORTB & _BV(PORTB6))) pwmStuckHigh++;   // output disconnected but latch high = full speed!
+    if (d > 0 && !supplyReady()) pwmWithoutSupply++;                      // PWM on the driver input, supply off or rising
     double v = 0;
-    if (d > dutyThreshold) v = vMaxMmS * (d - dutyThreshold) / (kMaxDuty - dutyThreshold);
+    if (supplyReady() && d > dutyThreshold) v = vMaxMmS * (d - dutyThreshold) / (kMaxDuty - dutyThreshold);
     if (jam) v = 0;
+    amps = supplyReady() ? d / kMaxDuty * (jam ? jamA : runA) : 0.0;
+    g_ina.step1ms(amps);                                                  // may run the INT6 handler before the next loop
     h += (dirUp() ? 1.0 : -1.0) * polarity * v * 0.001;
     if (h < mechMin) h = mechMin;
     if (h > mechMax) h = mechMax;
@@ -348,7 +472,8 @@ static const char* screenName(UiModel::Screen s) {
                case UiModel::Screen::Count: break; }
   return "?";
 }
-struct Sample { uint32_t t; double h; double tofH; double duty; bool dirUp; UiModel::Screen screen; UiModel::Arrow arrow; uint8_t gauge; bool linkUp; };
+struct Sample { uint32_t t; double h; double tofH; double duty; bool dirUp; UiModel::Screen screen; UiModel::Arrow arrow; uint8_t gauge; bool linkUp;
+                bool supply; double amps; };
 
 // The HMI board takes ~0.7 s to bring its panel up (core 1); the link (core 0) runs meanwhile.
 static const uint32_t kPanelInitMs = 700;
@@ -363,7 +488,8 @@ struct Rig {
   TofSensor tof;
   Motor motor;
   Presets presets;
-  DeskController ctrl{link, buttons, tof, motor, presets};
+  CurrentMonitor current;
+  DeskController ctrl{link, buttons, tof, motor, presets, current};
   // HMI board
   SimUart hmiUart{hmipins::LINK_DE, true};
   std::unique_ptr<HmiApp> hmi;
@@ -376,11 +502,16 @@ struct Rig {
   uint8_t lastDirLevel = 0;
   uint32_t loopStepMs = 1;
 
-  Rig(double startHeight = 900.0, bool keepEeprom = false, uint32_t seed = 12345, uint32_t startMs = 1000, bool cordAtBoot = true) {
+  Rig(double startHeight = 900.0, bool keepEeprom = false, uint32_t seed = 12345, uint32_t startMs = 1000, bool cordAtBoot = true,
+      bool inaAtBoot = true) {
     memset(g_pinLevel, 0, sizeof(g_pinLevel));
     memset(g_pinMode, 0, sizeof(g_pinMode));
     for (uint8_t p : kButtonPin) g_pinLevel[p] = HIGH;
-    TCCR1A = TCCR1B = PORTB = 0; ICR1 = OCR1B = 0;
+    g_pinLevel[pins::I_ALERT] = HIGH;                // R25 pull-up
+    TCCR1A = TCCR1B = PORTB = PORTD = 0; ICR1 = OCR1B = 0;
+    memset(g_isr, 0, sizeof(g_isr));
+    g_supplyCutUnderLoad = 0;
+    g_ina = SimIna(); g_ina.present = inaAtBoot;
     g_tof = SimTof(); g_tofPresent = true;
     uint32_t busSeed = seed * 7 + 1;
     g_bus = Bus(); g_bus.rng.seed(busSeed);
@@ -396,6 +527,7 @@ struct Rig {
     motor.begin();
     link.begin();
     presets.begin();
+    current.begin();
     // the physical world already exists while the firmware boots: let the sensor produce a first sample
     w.nextSample = g_now;
     w.stepOneMs();
@@ -410,6 +542,8 @@ struct Rig {
     check(expectSensorViolations || g_tof.violations == 0, "ST driver entered %u times while the sensor did not ACK", g_tof.violations);
     check(w.pwmStuckHigh == 0, "PWM pin latched high while disconnected for %u ms", w.pwmStuckHigh);
     check(w.maxDuty <= kMaxDuty + 0.0005, "duty reached %.3f", w.maxDuty);
+    check(w.pwmWithoutSupply == 0, "PWM sent to the driver for %u ms while its supply was off or still rising", w.pwmWithoutSupply);
+    check(g_supplyCutUnderLoad == 0, "driver supply switched off %u times with the PWM running", g_supplyCutUnderLoad);
     check(mbUart.writtenWithoutDe == 0 && hmiUart.writtenWithoutDe == 0, "bytes written with the transceiver not driving (MB %u, HMI %u)", mbUart.writtenWithoutDe, hmiUart.writtenWithoutDe);
     check(g_bus.collisions == 0, "%u bytes sent while the other side was driving the bus", g_bus.collisions);
     g_lcd = nullptr;
@@ -462,7 +596,8 @@ struct Rig {
       lastDirLevel = g_pinLevel[pins::MOTOR_DIR];
     }
     const UiModel& u = ctrl.ui();
-    trace.push_back({g_now, w.h, (double)tof.heightMm(), w.duty(), w.dirUp(), u.screen, u.arrow, u.gaugePercent, link.connected()});
+    trace.push_back({g_now, w.h, (double)tof.heightMm(), w.duty(), w.dirUp(), u.screen, u.arrow, u.gaugePercent, link.connected(),
+                     supplySwitchOn(), w.amps});
   }
   void run(uint32_t ms) { for (uint32_t i = 0; i < ms; i++) step(); }
   void press(int bit) { w.setButton(bit, true); }
@@ -801,11 +936,168 @@ static void testFaults() {
     r.press(UP); r.run(1500);
     motorFailsafeCut();                                   // what the watchdog interrupt does
     check(!(TCCR1A & _BV(COM1B1)) && !(PORTB & _BV(PORTB6)), "failsafe must disconnect and clear the PWM pin");
+    check(!supplySwitchOn(), "failsafe must switch the driver supply off");
     r.run(5);
     check(r.w.duty() == 0.0, "duty must stay 0 after the failsafe");
     check(r.ctrl.ui().screen == UiModel::Screen::Fault, "failsafe should raise a fault, screen=%s", screenName(r.ctrl.ui().screen));
     r.release(UP); r.run(4000);
     check(r.ctrl.ui().screen == UiModel::Screen::Main, "fault should clear: %s", screenName(r.ctrl.ui().screen));
+  }
+}
+
+static unsigned supplyEdges(const Rig& r) {
+  unsigned n = 0; bool prev = false;
+  for (const Sample& s : r.trace) { if (s.supply != prev) n++; prev = s.supply; }
+  return n;
+}
+
+static void testMotorSupply() {
+  printf("\n[driver supply] on with the first move, PWM once it has settled, off after %lu s without a move\n",
+         (unsigned long)(MOTOR_POWER_IDLE_OFF_MS / 1000));
+  Rig r(900.0);
+  check(g_pinMode[pins::MOTOR_POWER] == OUTPUT && !supplySwitchOn(), "driver supply not switched off at boot");
+  r.run(400);
+  check(!supplySwitchOn(), "driver supply switched on without a move");
+  r.press(UP);
+  uint32_t tp = g_now;
+  r.run(1500); r.release(UP); r.run(600);
+  uint32_t tOn = 0, tPwm = 0;
+  for (const Sample& s : r.trace) if (s.t > tp) { if (!tOn && s.supply) tOn = s.t; if (!tPwm && s.duty > 0) tPwm = s.t; }
+  check(tOn && tOn - tp <= kPressLatencyMs + 3, "supply on %u ms after the press", tOn - tp);
+  check(tPwm && tPwm - tOn >= MOTOR_POWER_SETTLE_MS && tPwm - tOn <= MOTOR_POWER_SETTLE_MS + 5,
+        "first PWM %u ms after the supply (expected %u)", tPwm - tOn, (unsigned)MOTOR_POWER_SETTLE_MS);
+  check(r.w.h > 905.0, "desk did not move (%.1f mm)", r.w.h);
+
+  r.run(60000);                                          // a move inside the idle time does not wait for the supply
+  check(supplySwitchOn(), "supply off 60 s after a move");
+  r.press(DOWN);
+  uint32_t tp2 = g_now;
+  r.run(800); r.release(DOWN); r.run(700);
+  uint32_t tPwm2 = 0;
+  for (const Sample& s : r.trace) if (s.t > tp2 && s.duty > 0) { tPwm2 = s.t; break; }
+  check(tPwm2 && tPwm2 - tp2 <= kPressLatencyMs + 3, "second move: first PWM %u ms after the press", tPwm2 - tp2);
+
+  uint32_t tLast = 0;
+  for (const Sample& s : r.trace) if (s.duty > 0) tLast = s.t;
+  uint32_t tOff = 0;
+  while (g_now - tLast < MOTOR_POWER_IDLE_OFF_MS + 2000) { r.step(); if (!tOff && !supplySwitchOn()) tOff = g_now; }
+  check(tOff && tOff - tLast >= MOTOR_POWER_IDLE_OFF_MS && tOff - tLast <= MOTOR_POWER_IDLE_OFF_MS + 20,
+        "supply off %u ms after the last move (expected %lu)", tOff - tLast, (unsigned long)MOTOR_POWER_IDLE_OFF_MS);
+  check(r.ctrl.ui().screen == UiModel::Screen::Main && r.ctrl.ui().heightValid, "screen after the supply went off: %s", screenName(r.ctrl.ui().screen));
+
+  r.press(UP);                                           // and back on with the next move
+  uint32_t tp3 = g_now;
+  r.run(1200); r.release(UP); r.run(600);
+  uint32_t tOn3 = 0, tPwm3 = 0;
+  for (const Sample& s : r.trace) if (s.t > tp3) { if (!tOn3 && s.supply) tOn3 = s.t; if (!tPwm3 && s.duty > 0) tPwm3 = s.t; }
+  check(tOn3 && tPwm3 && tPwm3 - tOn3 >= MOTOR_POWER_SETTLE_MS, "after the idle cut: supply %u ms, PWM %u ms after the press", tOn3 - tp3, tPwm3 - tp3);
+  check(supplyEdges(r) == 3, "the supply switched %u times (expected on, off, on)", supplyEdges(r));
+  printf("  supply on %u ms after the press, PWM %u ms later; off %.1f s after the last move; %u switchings\n",
+         tOn - tp, tPwm - tOn, (tOff - tLast) / 1000.0, supplyEdges(r));
+}
+
+static void testOvercurrent() {
+  printf("\n[overcurrent] INA226 alert on INT6: PWM and driver supply cut in the interrupt, fault, recovery\n");
+  Rig r(900.0);
+  int n = digitalPinToInterrupt(pins::I_ALERT);
+  check(n >= 0 && g_isr[n] && g_isrMode[n] == FALLING, "I_ALERT is not on an external interrupt (falling edge)");
+  check(r.current.present() && g_ina.config == kInaConfig && g_ina.cal == kInaCal && g_ina.limit == kInaLimit && g_ina.mask == kInaMask,
+        "INA226 programming: config 0x%04X cal %u limit %u mask 0x%04X", g_ina.config, g_ina.cal, g_ina.limit, g_ina.mask);
+  r.run(400);
+  r.press(UP); r.run(2500);
+  int32_t ma = 0;
+  bool read = r.current.readCurrentMa(ma);
+  check(read && std::fabs(ma - r.w.amps * 1000) <= 0.02 * r.w.amps * 1000 + 5, "INA226 reads %ld mA, true %.0f mA", (long)ma, r.w.amps * 1000);
+  check(g_pinLevel[pins::I_ALERT] == HIGH && r.ctrl.ui().screen == UiModel::Screen::Main, "alert at the normal current");
+  r.release(UP); r.run(600);
+
+  r.w.jam = true; r.w.jamA = 15.0;                       // jammed: the current climbs with the soft start
+  r.press(UP);
+  uint32_t tOver = 0, tCut = 0, tFault = 0;
+  double peak = 0;
+  for (int i = 0; i < 3000; i++) {
+    r.step();
+    if (r.w.amps > peak) peak = r.w.amps;
+    if (!tOver && r.w.amps * 1000 > MOTOR_CURRENT_LIMIT_MA) tOver = g_now;
+    if (tOver && !tCut && !supplySwitchOn()) {
+      tCut = g_now;
+      check(r.w.duty() == 0.0, "supply cut but the PWM still runs");
+    }
+    if (!tFault && r.ctrl.ui().screen == UiModel::Screen::Fault) tFault = g_now;
+  }
+  check(tOver && tCut && tCut - tOver <= 20, "cut %u ms after the current crossed %d mA (2 INA226 samples max)", tCut - tOver, MOTOR_CURRENT_LIMIT_MA);
+  check(tFault && tFault - tCut <= 2, "fault shown %u ms after the cut", tFault - tCut);
+  check(r.ctrl.ui().title == UiText::Overcurrent, "fault title %u", (unsigned)r.ctrl.ui().title);
+  check(!r.motor.isPowered() && !supplySwitchOn() && r.maxDutyBetween(tCut, g_now) == 0.0, "the motor restarted while Up is held");
+  check(g_pinLevel[pins::I_ALERT] == HIGH && !g_ina.aff, "INA226 alert latch not cleared by the firmware");
+  r.shot("14_fault_overcurrent");
+
+  r.release(UP);
+  r.w.jam = false;
+  r.run(FAULT_MIN_DISPLAY_MS + 500);
+  check(r.ctrl.ui().screen == UiModel::Screen::Main, "fault not cleared: %s", screenName(r.ctrl.ui().screen));
+  double h0 = r.w.h;
+  r.press(UP); r.run(1500);
+  check(r.w.duty() > 0.1 && supplySwitchOn() && r.w.h > h0 + 3, "the desk does not move after the overcurrent fault");
+  r.release(UP); r.run(600);
+  printf("  current over %.1f A: driver supply and PWM cut %u ms later (peak %.1f A), fault on screen\n",
+         MOTOR_CURRENT_LIMIT_MA / 1000.0, tCut - tOver, peak);
+
+  // The interrupt can hit anywhere in the loop, e.g. just before Motor::update(): that must not undo the cut.
+  Rig r2(900.0);
+  r2.run(400);
+  r2.press(UP); r2.run(1500);
+  g_isr[n]();                                            // INT6 handler
+  r2.motor.update(g_now + 1);
+  check(pwmDuty() == 0.0 && !supplySwitchOn(), "Motor::update() undid the interrupt cut (duty %.3f, supply %d)", pwmDuty(), supplySwitchOn());
+  r2.run(5);
+  check(r2.ctrl.ui().screen == UiModel::Screen::Fault && r2.ctrl.ui().title == UiText::Overcurrent, "alert in the loop: %s", screenName(r2.ctrl.ui().screen));
+  r2.release(UP); r2.run(600);
+}
+
+static void testCurrentMonitorMissing() {
+  printf("\n[INA226 missing / lost / reset] no move without the current protection, recovery\n");
+  {
+    Rig r(900.0, false, 12345, 1000, true, false);       // INA226 not answering at boot
+    r.run(400);
+    check(!r.current.present(), "absent INA226 reported present");
+    r.press(UP); r.run(600);
+    check(r.w.maxDuty == 0.0 && !supplySwitchOn(), "the desk moved or the driver was powered without the INA226");
+    check(r.ctrl.ui().screen == UiModel::Screen::Notice && r.ctrl.ui().title == UiText::NoCurrentSense, "Up without the INA226: %s", screenName(r.ctrl.ui().screen));
+    r.shot("15_notice_no_current_sense");
+    r.tap(P1, 100); r.run(300);
+    check(r.w.maxDuty == 0.0, "goto without the INA226");
+    r.release(UP); r.run(2000);
+    g_ina.present = true;                                // answers again (late power-up, I2C glitch)
+    r.run(CURRENT_MONITOR_RETRY_MS + 100);
+    check(r.current.present() && g_ina.limit == kInaLimit && g_ina.mask == kInaMask, "INA226 not configured once it answers");
+    r.press(UP); r.run(1500);
+    check(r.w.duty() > 0.1, "the desk does not move once the INA226 answers");
+    r.release(UP); r.run(600);
+  }
+  {
+    Rig r(900.0);
+    r.run(400);
+    r.press(UP); r.run(1500);
+    check(r.w.duty() > 0.2, "should be moving");
+    uint32_t t0 = g_now, tStop = 0;
+    g_ina.present = false;                               // lost while moving
+    for (int i = 0; i < 2000; i++) { r.step(); if (!tStop && r.w.duty() == 0.0) tStop = g_now - t0; }
+    check(tStop > 0 && tStop <= CURRENT_MONITOR_RETRY_MS + 20, "motor stopped %u ms after the INA226 stopped answering", tStop);
+    check(r.ctrl.ui().screen == UiModel::Screen::Fault && r.ctrl.ui().title == UiText::NoCurrentSense, "INA226 lost: %s", screenName(r.ctrl.ui().screen));
+    r.release(UP);
+    g_ina.present = true;
+    r.run(FAULT_MIN_DISPLAY_MS + CURRENT_MONITOR_RETRY_MS + 200);
+    check(r.ctrl.ui().screen == UiModel::Screen::Main, "fault not cleared once the INA226 answers: %s", screenName(r.ctrl.ui().screen));
+    printf("  INA226 lost while moving: motor stopped after %u ms\n", tStop);
+  }
+  {
+    Rig r(900.0);
+    r.run(400);
+    g_ina.powerOnReset();                                // INA226 brown-out: alert settings back to the defaults
+    r.run(CURRENT_MONITOR_RETRY_MS + 100);
+    check(g_ina.config == kInaConfig && g_ina.cal == kInaCal && g_ina.limit == kInaLimit && g_ina.mask == kInaMask,
+          "INA226 settings not restored after its reset");
   }
 }
 
@@ -1122,6 +1414,9 @@ int main() {
   testLimits();
   testSensorLoss();
   testFaults();
+  testMotorSupply();
+  testOvercurrent();
+  testCurrentMonitorMissing();
   testButtonsAndEeprom();
   testSlowLoop();
   testNoSensorNotices();
