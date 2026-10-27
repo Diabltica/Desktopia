@@ -5,7 +5,7 @@ The motherboard decides everything: this board shows what it is told and reports
 
 ```bash
 pio run                 # .pio/build/hmi/firmware.uf2
-pio run -t upload       # hold BOOT (SW6) while plugging the USB-C cable the first time
+pio run -t upload       # hold BOOT (SW1) while plugging the USB-C cable the first time
 ```
 
 - Core 0: link (`hmi_app.cpp`) – answers every poll within ~0.2 ms, detects a reversed cord (A/B swapped) by itself,

@@ -123,10 +123,10 @@ HMI board (`hardware/desktopia_HMI/desktopia_HMI.kicad_sch`, RP2040):
 | Function | Name in `hmi_pins.h` (the schematic wires them, no labels) | GPIO |
 |---|---|---|
 | RS-485 DI / RO / DE + /RE | `LINK_TX` / `LINK_RX` / `LINK_DE` | GP0 (UART0 TX) / GP1 (UART0 RX) / GP2 |
-| SW1 Up / SW2 Down | `BTN_UP` / `BTN_DOWN` | GP11 / GP12 |
-| SW3-SW5 Preset 1-3 | `BTN_PRESET1..3` | GP13 / GP14 / GP15 |
+| SW2 Up / SW3 Down | `BTN_UP` / `BTN_DOWN` | GP11 / GP12 |
+| SW4-SW6 Preset 1-3 | `BTN_PRESET1..3` | GP13 / GP14 / GP15 |
 | Screen CS / SCK / MOSI / DC / RST | `LCD_*` | GP17 / GP18 / GP19 / GP20 / GP21 (SPI0) |
-| SWD | `SWCLK` / `SWDIO` | TP7 / TP8 (+ RUN on TP9, GND on TP10) |
+| SWD | `SWCLK` / `SWDIO` | TP4 / TP3 (+ RUN on TP2, GND on TP1) |
 
 Buttons switch to GND, with the RP2040 internal pull-ups, and are debounced on the HMI board (15 ms). The screen is still
 powered from the 5 V (the module regulates its own 3.3 V); its logic is now 3.3 V from the RP2040.
@@ -153,9 +153,9 @@ pio run                                   # build (env hmi): .pio/build/hmi/firm
 pio run -t upload                         # board in bootloader mode, see below
 ```
 
-First flash of a new HMI board: hold **BOOT** (SW6), plug the USB-C cable, release BOOT. The board shows up as a USB
+First flash of a new HMI board: hold **BOOT** (SW1), plug the USB-C cable, release BOOT. The board shows up as a USB
 drive (RPI-RP2), then run `pio run -t upload` or copy `firmware.uf2` onto the drive. Later updates: the same, or SWD
-through TP7 / TP8 with a debug probe.
+through TP4 (SWCLK) / TP3 (SWDIO) with a debug probe.
 
 Dependencies: the ST driver (`stm32duino/VL53L1X` 2.0.1, ULD), pinned to its tag; Max Gerhardt's
 `platform-raspberrypi` with Earle Philhower's arduino-pico core for the HMI board.
