@@ -199,8 +199,11 @@ get its 8 × 10 mm footprint. The routing is not finished. For the layout:
   Give the drain tab of Q5 a few cm² of copper. Keep D4 between J5 pin 1 and its ground pin, and C21, D3, R21 close
   to Q5.
 - Route Vin+ / Vin- of the INA226 as a Kelvin pair from the inner side of the R23 pads.
-- Check the RJ11 jack J4 (EVERCOM 5301-6P6C, C3097716) against the Amphenol 54601 footprint it uses. Compare the
-  drilling with the part's datasheet.
+- J4 is an EVERCOM 5301-6P6C (C3097716) on the Amphenol 54601 footprint. Its LCSC 3D model fits: the 0.45 mm pins
+  fall in the 0.76 mm holes and the two pegs in the 3.25 mm holes. EasyEDA's own land pattern drills 0.9 mm, so
+  check the drilling against the datasheet before ordering.
+- 3D models: J3 and J4 use the LCSC models (`kicad_library/pcb/JLCImport.3dshapes`, VRML only: the LCSC STEP files
+  have another origin), U2 KiCad's `TI_SO-PowerPAD-8.step`.
 
 ## Known issues and history
 
