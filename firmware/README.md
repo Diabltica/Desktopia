@@ -209,7 +209,8 @@ Motherboard (`include/config.h`):
 | `HMI_LINK_TIMEOUT_MS` / `HMI_LINK_SETTLE_MS` | 40 / 100 | link declared down / trusted again |
 | `TOF_BYPASS` | 0 | 1 = height sensor ignored for motor control, **bench test only** (see below) |
 
-HMI board (`../hmi_firmware/include/hmi_config.h`): `DISPLAY_ROTATION` (1), `DISPLAY_SPI_HZ` (20 MHz),
+HMI board (`../hmi_firmware/include/hmi_config.h`): `DISPLAY_ROTATION` (3: screen module mounted with its pin header
+towards the buttons), `DISPLAY_SPI_HZ` (20 MHz),
 `HMI_DEBOUNCE_MS` (15), `HMI_POLARITY_SWAP_MS` (150), `HMI_NO_LINK_MS` (500), `DISPLAY_SLEEP_AFTER_MS` (20 s at rest
 before the "Zz"), `DISPLAY_PRESET_MATCH_MM` (± 10 mm: the desk is "on" a preset), `DISPLAY_ANIM_STEP_MS` (80 ms per
 animation frame).

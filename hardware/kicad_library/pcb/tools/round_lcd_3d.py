@@ -1,9 +1,10 @@
 """Builds JLCImport.3dshapes/RoundLCD.wrl: the 1.28" GC9A01 round LCD module, with materials, for the KiCad 3D view.
 
-KiCad cannot map image textures on 3D models, so the screen content is made of geometry: every lit pixel of a
-240 x 240 screenshot of the real UI (written by firmware/sim/run.sh) becomes a small self-lit quad (one run of
-same-coloured pixels per quad). Same outline, origin and height as RoundLCD.step, which stays for the STEP export
-(kicad-cli pcb export step --subst-models picks the .step of the same name).
+KiCad cannot map image textures on 3D models, so the screen content is made of geometry: the active area is a self-lit
+disc in the background colour of a 240 x 240 screenshot of the real UI (written by firmware/sim/run.sh), and every other
+pixel becomes part of a small self-lit quad (one rectangle of same-coloured pixels per quad). Same outline, origin and
+height as RoundLCD.step, which stays for the STEP export (kicad-cli pcb export step --subst-models picks the .step of
+the same name).
 
 usage: python round_lcd_3d.py [screenshot.ppm] [out.wrl]
 """
@@ -24,7 +25,9 @@ ACTIVE_R = 16.2                                     # 1.28" active area: 240 px 
 GLASS_T = 0.15
 PINS_X = [(i - 3) * 2.54 for i in range(7)]
 PINS_Y = -24.71
-SCREEN_ROT = 90                                     # screen content rotation (degrees, counter-clockwise)
+SCREEN_ROT = 270                                    # screen content rotation (degrees, counter-clockwise): upright
+                                                    # on the HMI board, where J2 sits at 90° (header towards the
+                                                    # buttons) and the firmware turns the picture (DISPLAY_ROTATION 3)
 SEG = 96
 
 # Materials: diffuse, specular, shininess, transparency, emissive
@@ -101,32 +104,51 @@ def read_ppm(path):
     return w, h, px[: w * h * 3]
 
 
+def self_lit(c):                                    # material of a screen colour (bytes r, g, b)
+    rgb = tuple(v / 255 for v in c)
+    return tuple(v * 0.25 for v in rgb), (0.0, 0.0, 0.0), 0.1, 0.0, tuple(v * 0.95 for v in rgb)
+
+
 def screen_shapes():
+    """(background colour, shapes of the other pixels) of the screenshot, as seen on the module."""
     w, h, px = read_ppm(SHOT)
     p = 2 * ACTIVE_R / w
     z = PANEL_Z1 + 0.003
     rot = math.radians(SCREEN_ROT)
     cr, sr = math.cos(rot), math.sin(rot)
     tf = lambda x, y: (x * cr - y * sr, x * sr + y * cr, z)
-    meshes = {}
+    pixel = lambda row, col: px[(row * w + col) * 3: (row * w + col) * 3 + 3]
+
+    # Runs of same-coloured pixels inside the round panel, row by row
+    rows = []
     for row in range(h):
-        col = 0
+        runs, col = [], 0
         while col < w:
-            c = px[(row * w + col) * 3: (row * w + col) * 3 + 3]
             run = col + 1
-            while run < w and px[(row * w + run) * 3: (row * w + run) * 3 + 3] == c:
+            while run < w and pixel(row, run) == pixel(row, col):
                 run += 1
-            x0, x1 = (col - w / 2) * p, (run - w / 2) * p
-            y1, y0 = (h / 2 - row) * p, (h / 2 - row - 1) * p
-            if max(c) > 60 and math.hypot((x0 + x1) / 2, (y0 + y1) / 2) < ACTIVE_R:   # lit pixel inside the round panel
-                meshes.setdefault(bytes(c), Mesh()).quad(tf(x0, y0), tf(x1, y0), tf(x1, y1), tf(x0, y1))
+            if math.hypot((col + run - w) / 2, h / 2 - row - 0.5) * p < ACTIVE_R:
+                runs.append((col, run, bytes(pixel(row, col))))
             col = run
-    out = []
-    for c, m in sorted(meshes.items()):
-        rgb = tuple(v / 255 for v in c)
-        out.append(shape("pixels %02x%02x%02x" % tuple(c), m,
-                         (tuple(v * 0.25 for v in rgb), (0.0, 0.0, 0.0), 0.1, 0.0, tuple(v * 0.95 for v in rgb))))
-    return out
+        rows.append(runs)
+    area = {}
+    for runs in rows:
+        for col, run, c in runs:
+            area[c] = area.get(c, 0) + run - col
+    background = max(area, key=area.get)
+
+    # Identical runs on consecutive rows become one rectangle: the UI is pixel art, 4 x 4 screen pixels per dot
+    meshes, open_ = {}, {}
+    for row in range(h + 1):
+        here = {r for r in rows[row] if r[2] != background} if row < h else set()
+        for r in [r for r in open_ if r not in here]:
+            col, run, c = r
+            x0, x1 = (col - w / 2) * p, (run - w / 2) * p
+            y1, y0 = (h / 2 - open_.pop(r)) * p, (h / 2 - row) * p
+            meshes.setdefault(c, Mesh()).quad(tf(x0, y0), tf(x1, y0), tf(x1, y1), tf(x0, y1))
+        for r in here:
+            open_.setdefault(r, row)
+    return background, [shape("pixels %02x%02x%02x" % tuple(c), m, self_lit(c)) for c, m in sorted(meshes.items())]
 
 
 def build():
@@ -160,7 +182,8 @@ def build():
         res.box(x - 0.8, x + 0.8, y - 0.4, y + 0.4, -PCB_T - 0.45, -PCB_T)
     parts += [shape("ic", ic), shape("ceramic", cer), shape("resistor", res)]
 
-    # Display panel: light backlight frame, black bezel ring and the dark active area, glass on top
+    # Display panel: light backlight frame, black bezel ring and the active area lit in the UI's background colour,
+    # glass on top
     frame, bezel, screen, glass = Mesh(), Mesh(), Mesh(), Mesh()
     frame.cylinder(0, 0, PANEL_R, PANEL_Z0 + 0.05, PANEL_Z1 - 0.2, top=False)
     bezel.cylinder(0, 0, PANEL_R - 0.05, PANEL_Z1 - 0.2, PANEL_Z1, top=False, bottom=False)
@@ -168,8 +191,9 @@ def build():
     screen.poly([(ACTIVE_R * math.cos(2 * math.pi * k / SEG), ACTIVE_R * math.sin(2 * math.pi * k / SEG), PANEL_Z1)
                  for k in range(SEG)])
     glass.cylinder(0, 0, PANEL_R - 0.05, PANEL_Z1 + 0.01, PANEL_Z1 + GLASS_T)
-    parts += [shape("frame", frame), shape("bezel", bezel), shape("screen", screen)]
-    parts += screen_shapes()
+    background, pixels = screen_shapes()
+    parts += [shape("frame", frame), shape("bezel", bezel), shape("screen", screen, self_lit(background))]
+    parts += pixels
 
     # Display flex cable, folded from the panel edge down onto the PCB towards the header
     fpc = Mesh()

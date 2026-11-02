@@ -31,8 +31,8 @@
  *  Display (round 240x240 SPI LCD, GC9A01)
  * ------------------------------------------------------------------------- */
 #ifndef DISPLAY_ROTATION
-#define DISPLAY_ROTATION           1        // 0..3 (1 = 90° clockwise)
-#endif
+#define DISPLAY_ROTATION           3        // 0..3 quarter turns (1 = 90° clockwise). 3: the module is mounted with its
+#endif                                      // pin header towards the buttons (J2 at 90° on the PCB)
 #ifndef DISPLAY_SPI_HZ
 #define DISPLAY_SPI_HZ             20000000UL
 #endif
