@@ -10,7 +10,9 @@ pio run -t upload       # hold BOOT (SW1) while plugging the USB-C cable the fir
 
 - Core 0: link (`hmi_app.cpp`) – answers every poll within ~0.2 ms, detects a reversed cord (A/B swapped) by itself,
   shows **NO LINK** when nothing valid arrives for 0.5 s.
-- Core 1: screen (`display.cpp`, `gc9a01.cpp`) – the same screens as before, drawn at 20 MHz SPI.
+- Core 1: screen at 20 MHz SPI. Animated pixel art (`scene.cpp`: up / down, save, go to a preset, asleep) drawn into
+  a 60 × 60 frame of 4 × 4 blocks (`canvas.cpp`) that only sends the blocks that changed; boot, notice and fault
+  screens in plain text (`display.cpp`). Panel driver: `gc9a01.cpp`. Preview: `../firmware/README.md`.
 - Settings: `include/hmi_config.h`. Pinout: `include/hmi_pins.h` (from `hardware/desktopia_HMI/desktopia_HMI.kicad_sch`).
 - Hardware: [../hardware/desktopia_HMI/README.md](../hardware/desktopia_HMI/README.md).
 - Protocol: `../shared/hmi_link/hmi_protocol.h`. Full documentation and the simulation of both boards: `../firmware/README.md`.

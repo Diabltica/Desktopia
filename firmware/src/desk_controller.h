@@ -11,7 +11,8 @@
 // Application logic: turns button events + measured height into motor commands and screen content.
 //
 //  Idle ──Up/Down held──▶ Manual ──button released / limit──▶ Idle
-//  Idle ──preset short press──▶ GotoPreset ──target reached / any button (Up + Down)──▶ Idle, inputs ignored until release
+//  Idle ──preset short press──▶ GotoPreset ──target reached──▶ Idle (+ arrival overlay)
+//                                          ──any button (Up + Down)──▶ Idle, inputs ignored until release
 //  Idle ──preset held 400 ms──▶ Saving ──held 2 s: save──▶ Idle (+ success overlay) / released: cancel
 //  any state ──sensor lost while moving, stall, wrong way, timeout, watchdog──▶ Fault ──cleared──▶ Idle
 //  any state ──motor current alert (INA226, driver supply already cut by INT6)──▶ Fault ──cleared──▶ Idle
@@ -30,7 +31,7 @@ class DeskController {
 
  private:
   enum class State : uint8_t { Idle, Manual, GotoPreset, Saving, Fault };
-  enum class Overlay : uint8_t { None, Notice, Success };
+  enum class Overlay : uint8_t { None, Notice, Success, Arrived };
   enum class FaultCode : uint8_t { None, Link, Sensor, WrongWay, Stall, Timeout, Watchdog, Overcurrent, CurrentSense };
 
   void handleEvent(const ButtonEvent& ev, uint32_t nowMs);
@@ -52,6 +53,7 @@ class DeskController {
   void logCurrent(uint32_t nowMs);
   void enterFault(FaultCode code, uint32_t nowMs);
   void showNotice(UiText title, UiText subtitle, uint32_t nowMs);
+  void showArrival(uint8_t presetIndex, uint32_t nowMs);
   void refreshUi(uint32_t nowMs);
 
   static uint16_t approachSpeedPermille(int16_t remainingMm);
@@ -82,16 +84,16 @@ class DeskController {
   uint32_t _lastMonitor = 0;
   uint32_t _lastCurrentLog = 0;
 
-  // preset saving
+  // preset saving / automatic move
   Button _saveButton = Button::Preset1;
-  uint8_t _presetIndex = 0;
+  uint8_t _presetIndex = 0;            // preset being saved (Saving) or driven to (GotoPreset)
 
   // transient messages shown on top of the Idle state
   Overlay _overlay = Overlay::None;
   uint32_t _overlayUntil = 0;
   UiText _noticeTitle = UiText::None;
   UiText _noticeSubtitle = UiText::None;
-  uint8_t _successPreset = 1;
+  uint8_t _overlayPreset = 1;          // 1..3: preset just saved (Success) or reached (Arrived)
   int16_t _successHeight = 0;
 
   UiModel _ui;

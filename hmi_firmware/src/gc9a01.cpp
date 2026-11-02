@@ -226,18 +226,20 @@ void Gc9a01::fillCircle(int16_t cx, int16_t cy, int16_t r, uint16_t color) {
   }
 }
 
-void Gc9a01::fillRing(int16_t cx, int16_t cy, int16_t rOuter, int16_t rInner, uint16_t color) {
-  for (int16_t dy = -rOuter; dy <= rOuter; dy++) {
-    int16_t dxo = (int16_t)isqrt((uint32_t)((int32_t)rOuter * rOuter - (int32_t)dy * dy));
-    int16_t ady = (int16_t)(dy < 0 ? -dy : dy);
-    if (ady <= rInner) {                                     // the hole is crossed on this row: two spans
-      int16_t dxi = (int16_t)isqrt((uint32_t)((int32_t)rInner * rInner - (int32_t)dy * dy));
-      fillRect((int16_t)(cx - dxo), (int16_t)(cy + dy), (int16_t)(dxo - dxi), 1, color);
-      fillRect((int16_t)(cx + dxi + 1), (int16_t)(cy + dy), (int16_t)(dxo - dxi), 1, color);
-    } else {
-      fillRect((int16_t)(cx - dxo), (int16_t)(cy + dy), (int16_t)(2 * dxo + 1), 1, color);
+void Gc9a01::drawScaledRun(int16_t x, int16_t y, const uint16_t* colors, uint8_t count, uint8_t scale) {
+  int16_t w = (int16_t)(count * scale);
+  if (!count || !scale || x < 0 || y < 0 || x + w > kSize || y + scale > kSize) return;
+  uint8_t line[kSize * 2];                         // one screen row of the run
+  uint16_t n = 0;
+  for (uint8_t i = 0; i < count; i++) {
+    for (uint8_t k = 0; k < scale; k++) {
+      line[n++] = (uint8_t)(colors[i] >> 8);
+      line[n++] = (uint8_t)colors[i];
     }
   }
+  openWindow(x, y, (int16_t)(x + w - 1), (int16_t)(y + scale - 1));
+  for (uint8_t r = 0; r < scale; r++) spiSendBuf(line, n);
+  closeWindow();
 }
 
 void Gc9a01::drawChar(int16_t x, int16_t y, char c, uint8_t scale, uint16_t fg, uint16_t bg) {

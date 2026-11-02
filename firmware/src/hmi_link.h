@@ -5,7 +5,7 @@
 
 // Master side of the RS-485 link to the HMI board (see shared/hmi_link/hmi_protocol.h).
 // Every HMI_POLL_PERIOD_MS: sends the screen content, then listens for the button levels.
-// Never blocks longer than one frame transmission (~0.7 ms at 250 kbaud).
+// Never blocks longer than one frame transmission (~1.1 ms at 250 kbaud).
 class HmiLink {
  public:
   HmiLink(Stream& port, uint8_t dePin) : _port(port), _de(dePin) {}

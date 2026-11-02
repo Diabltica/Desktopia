@@ -34,11 +34,20 @@ void packUi(const UiModel& m, uint8_t* out) {
   out[8] = (uint8_t)((uint16_t)m.savedHeightMm >> 8);
   out[9] = (uint8_t)m.title;
   out[10] = (uint8_t)m.subtitle;
+  for (uint8_t i = 0; i < UiModel::kPresetSlots; i++) {
+    out[11 + 2 * i] = (uint8_t)m.presetMm[i];
+    out[12 + 2 * i] = (uint8_t)(m.presetMm[i] >> 8);
+  }
+  out[17] = (uint8_t)m.ringMinMm;
+  out[18] = (uint8_t)((uint16_t)m.ringMinMm >> 8);
+  out[19] = (uint8_t)m.ringMaxMm;
+  out[20] = (uint8_t)((uint16_t)m.ringMaxMm >> 8);
 }
 
 bool unpackUi(const uint8_t* in, UiModel& m) {
   if (in[0] >= (uint8_t)UiModel::Screen::Count || in[1] >= (uint8_t)UiModel::Arrow::Count || in[4] > 1 ||
-      in[6] > 100 || in[9] >= (uint8_t)UiText::Count || in[10] >= (uint8_t)UiText::Count) {
+      in[5] > UiModel::kPresetSlots || in[6] > 100 || in[9] >= (uint8_t)UiText::Count ||
+      in[10] >= (uint8_t)UiText::Count) {
     return false;
   }
   m.screen = (UiModel::Screen)in[0];
@@ -50,6 +59,9 @@ bool unpackUi(const uint8_t* in, UiModel& m) {
   m.savedHeightMm = (int16_t)(in[7] | ((uint16_t)in[8] << 8));
   m.title = (UiText)in[9];
   m.subtitle = (UiText)in[10];
+  for (uint8_t i = 0; i < UiModel::kPresetSlots; i++) m.presetMm[i] = (uint16_t)(in[11 + 2 * i] | ((uint16_t)in[12 + 2 * i] << 8));
+  m.ringMinMm = (int16_t)(in[17] | ((uint16_t)in[18] << 8));
+  m.ringMaxMm = (int16_t)(in[19] | ((uint16_t)in[20] << 8));
   return true;
 }
 

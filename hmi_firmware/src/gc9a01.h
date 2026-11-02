@@ -4,7 +4,7 @@
 // Compact driver for 240x240 round GC9A01 panels, hardware SPI, write-only, RGB565.
 //
 // Written for the ATmega32U4 of the first board revision (no room for Adafruit_GFX); kept on the RP2040 because
-// it does exactly what the UI needs (rectangles, discs, scaled 5x7 text) and the screens look the same.
+// it does exactly what the UI needs (rectangles, discs, scaled 5x7 text, runs of big "pixel art" pixels).
 // The panel init sequence and the rotation values are taken from Adafruit_GC9A01A
 // (BSD licence, (c) Adafruit Industries) – it is the sequence known to work on round GC9A01 modules.
 class Gc9a01 {
@@ -16,8 +16,11 @@ class Gc9a01 {
 
   void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);   // clipped to the screen
   void fillCircle(int16_t cx, int16_t cy, int16_t r, uint16_t color);
-  void fillRing(int16_t cx, int16_t cy, int16_t rOuter, int16_t rInner, uint16_t color);
   void fillScreen(uint16_t color) { fillCircle(kSize / 2, kSize / 2, kSize / 2 + 1, color); }   // the panel is round: only the visible disc (-22 % pixels)
+
+  // `count` colours drawn side by side from (x, y), each as a scale x scale block, in one window.
+  // Not clipped: the run must fit on the screen.
+  void drawScaledRun(int16_t x, int16_t y, const uint16_t* colors, uint8_t count, uint8_t scale);
 
   // Built-in 5x7 font (ASCII 32..126) drawn in a 6x8 cell x scale, background painted (opaque).
   void drawChar(int16_t x, int16_t y, char c, uint8_t scale, uint16_t fg, uint16_t bg);

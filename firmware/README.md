@@ -11,15 +11,20 @@ Two boards, two firmwares, linked by an RJ11 cord (project overview: [../README.
 
 ![UI preview](docs/ui_preview.png)
 
-*(Preview produced by the real display code, rendered pixel by pixel by the emulator in `sim/`.)*
+| Up | Down | Long press: save | Going to a preset | Asleep |
+|---|---|---|---|---|
+| ![Up](docs/anim_up.gif) | ![Down](docs/anim_down.gif) | ![Save](docs/anim_save.gif) | ![Go to preset](docs/anim_goto.gif) | ![Asleep](docs/anim_idle.gif) |
+
+*(Produced by the real display code, rendered pixel by pixel by the emulator in `sim/`. In the "going to a preset" film
+the desk moves 3 times faster than the real one.)*
 
 ## Operation
 
 | Action | Result |
 |---|---|
-| **Up / Down** held | the desk moves as long as the button is held; ramped start (*soft start*), green / orange arrow on screen |
-| **Preset 1-3, short press** (< 400 ms) | the desk goes to the saved height, slowing down progressively over the last 80 mm |
-| **Preset 1-3, long press** | after 400 ms a circular gauge fills up; at 2 s: saved to EEPROM, then *SUCCESS* screen |
+| **Up / Down** held | the desk moves as long as the button is held; ramped start (*soft start*); green / orange chevrons scroll on screen |
+| **Preset 1-3, short press** (< 400 ms) | the desk goes to the saved height, slowing down progressively over the last 80 mm; a gold "ding" on arrival (also when it is there already) |
+| **Preset 1-3, long press** | after 400 ms a floppy appears and a ring of 24 segments fills up; at 2 s: saved to EEPROM, then *SAVED* screen |
 | release before the gauge is full | nothing is saved, nothing moves |
 | **Up + Down** (or any button) during an automatic move | stop (300 ms ramp); nothing starts again until every button is released |
 | Up + Down together | nothing moves until both are released |
@@ -28,6 +33,20 @@ Two boards, two firmwares, linked by an RJ11 cord (project overview: [../README.
 | motor current above 8 A | PWM and driver supply cut within ~20 ms, **OVERCURRENT** screen |
 
 PWM capped at **60 %**, direction **1 = up / 0 = down** (change in `config.h`).
+
+## Screen
+
+Pixel art: one logical pixel is a 4 × 4 block of the 240 × 240 panel, so the HMI board draws a 60 × 60 frame and
+sends only the blocks that changed. The layout never moves:
+
+- the height in the middle, big digits with a drop shadow; a digit that changes during a move rolls in;
+- the **ring**: the height between `HEIGHT_MIN_MM` (empty) and `HEIGHT_MAX_MM` (full), filled from 6 o'clock on both
+  sides, with a mark for each saved preset;
+- the **pills 1-2-3** below the number, one per preset button: dotted = never saved, gold = the desk is on it.
+
+Colours: green going up, orange going down, cyan while saving, gold for the presets, lavender at rest. After 20 s at
+rest, "Zz" rise above the height and a shine runs up the ring. Timings and sprites: `../hmi_firmware/src/scene.cpp`.
+Boot, notice and fault screens are plain text in the same colours.
 
 ## File layout
 
@@ -50,7 +69,10 @@ hmi_firmware/                    HMI board (RP2040)
   include/hmi_config.h           HMI settings (link timing, debounce, screen)
   src/main.cpp                   core 0: link + buttons, core 1: screen; RP2040 watchdog
   src/hmi_app.*                  link slave, A/B polarity detection, NO LINK screen, hand-over to core 1
-  src/display.*  src/gc9a01.*    UI and panel driver (moved from the motherboard, unchanged screens)
+  src/display.*                  picks the screen: pixel art (scene + canvas) or text (boot, notice, fault)
+  src/scene.*                    the pixel-art screens and their animations, sprites and fonts
+  src/canvas.*                   60 x 60 frame of 4 x 4 blocks, palette, sends only what changed
+  src/gc9a01.*                   panel driver
   src/ui_text.*                  the strings behind the text numbers sent by the motherboard
 shared/hmi_link/                 hmi_protocol.* (frames, CRC, UiModel packing), ui_model.h
 ```
@@ -76,9 +98,11 @@ pin-out, ±15 kV ESD on A/B, both JLCPCB *Basic* parts.
 - **Never plug the motherboard jack into a telephone wall socket** (ringing voltage).
 
 **Protocol** (`shared/hmi_link/hmi_protocol.h`): 250 000 baud 8N1 (exact on both MCUs), half duplex, the motherboard is
-the only master. Every 10 ms it sends a *State* frame (the screen content: screen, arrow, height, gauge, text numbers;
-17 bytes). The HMI board answers within ~0.2 ms with a *Buttons* frame (debounced levels; 8 bytes). Frames:
-`0xA5 | type | len | payload | CRC-16/CCITT`. A frame with a bad CRC is dropped; the next poll comes 10 ms later.
+the only master. Every 10 ms it sends a *State* frame (the screen content: screen, arrow, height, gauge, text numbers,
+preset heights, ring range; 27 bytes). The HMI board answers within ~0.2 ms with a *Buttons* frame (debounced levels;
+8 bytes). Frames: `0xA5 | type | len | payload | CRC-16/CCITT`. A frame with a bad CRC is dropped; the next poll comes
+10 ms later. Protocol version 2: flash **both** boards after an update (with different versions the frames do not
+match: the HMI board shows NO LINK and nothing moves).
 
 **When the link fails**:
 
@@ -159,8 +183,8 @@ through TP4 (SWCLK) / TP3 (SWDIO) with a debug probe.
 
 Dependencies: the ST driver (`stm32duino/VL53L1X` 2.0.1, ULD), pinned to its tag; Max Gerhardt's
 `platform-raspberrypi` with Earle Philhower's arduino-pico core for the HMI board.
-Size: motherboard ≈ 20.6 KB of flash (72 % of the 28 KB next to the bootloader), ≈ 0.9 KB of RAM;
-HMI board ≈ 48 KB of flash, ≈ 9 KB of RAM.
+Size: motherboard ≈ 20.9 KB of flash (73 % of the 28 KB next to the bootloader), ≈ 1 KB of RAM;
+HMI board ≈ 54 KB of flash, ≈ 19 KB of RAM.
 
 ## Main settings
 
@@ -186,7 +210,9 @@ Motherboard (`include/config.h`):
 | `TOF_BYPASS` | 0 | 1 = height sensor ignored for motor control, **bench test only** (see below) |
 
 HMI board (`../hmi_firmware/include/hmi_config.h`): `DISPLAY_ROTATION` (1), `DISPLAY_SPI_HZ` (20 MHz),
-`HMI_DEBOUNCE_MS` (15), `HMI_POLARITY_SWAP_MS` (150), `HMI_NO_LINK_MS` (500).
+`HMI_DEBOUNCE_MS` (15), `HMI_POLARITY_SWAP_MS` (150), `HMI_NO_LINK_MS` (500), `DISPLAY_SLEEP_AFTER_MS` (20 s at rest
+before the "Zz"), `DISPLAY_PRESET_MATCH_MM` (± 10 mm: the desk is "on" a preset), `DISPLAY_ANIM_STEP_MS` (80 ms per
+animation frame).
 
 ## Motor bench test without the sensor (`TOF_BYPASS`)
 
@@ -304,10 +330,12 @@ still to do and the known issues (TPS5430 ENA, 5 V loop to measure, VL53L1CB I/O
 
 - **Motherboard build** with PlatformIO (avr-gcc 7.3.0), all environments, `-Wall -Wextra` with no warnings.
 - **HMI board build** with PlatformIO (platform-raspberrypi, arduino-pico core), `-Wall -Wextra` with no warnings.
-- **PC simulation** (`sim/run.sh`, 853 checks passed) of the real sources of **both** boards against a simulated desk,
+- **PC simulation** (`sim/run.sh`, 912 checks passed) of the real sources of **both** boards against a simulated desk,
   a noisy ToF (outliers and invalid values included), an INA226 with its alert line on INT6, the switched driver
   supply, a simulated RS-485 bus and cord, buttons with bounce and an emulated GC9A01 screen. Covered: PWM ramps and ceiling, DIR direction, presets (short / long press, EEPROM, gauge), recall accuracy
   (standard deviation ≈ 2.3 mm with 1-3 mm sensor noise), end stops, faults, `millis()` rollover, screen rendering.
+  Screen: every pixel-art state read back from the emulated panel (ring colour, chevrons, preset pills and marks,
+  floppy and gauge, SAVED, flag and travel left, arrival "ding", Zz), arrival overlay length, "already there" press.
   Link scenarios: frame codec (every single-bit error caught), cord pulled out while moving (motor cut after 36 ms), cord back
   in with a button still held (no movement), boot without the cord, reversed cord (link found in ~150 ms), data pair cut
   (NO LINK on the HMI board), 1 corrupted byte in 500 (no false stop), 20 ms motherboard loop.
@@ -323,5 +351,6 @@ still to do and the known issues (TPS5430 ENA, 5 V loop to measure, VL53L1CB I/O
 
 ```bash
 cd sim && ./run.sh     # Linux / WSL, g++; writes emulated screenshots to sim/shots/ (PPM)
-./preview.sh           # rebuilds docs/ui_preview.png from those screenshots (ImageMagick)
+SIM_FILM=1 ./run.sh    # the same, and films the animations into sim/shots/anim_*/ (one picture per 80 ms)
+./preview.sh           # rebuilds docs/ui_preview.png and docs/anim_*.gif from those pictures (ImageMagick)
 ```

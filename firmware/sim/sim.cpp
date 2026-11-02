@@ -13,8 +13,10 @@
 #include <EEPROM.h>
 #include <vector>
 #include <deque>
+#include <map>
 #include <memory>
 #include <string>
+#include <sys/stat.h>
 #include <cmath>
 #include <cstdarg>
 #include <random>
@@ -33,6 +35,7 @@
 #include "hmi_config.h"
 #include "hmi_hw.h"
 #include "hmi_pins.h"
+#include "canvas.h"
 #include <avr/wdt.h>
 
 // ------------------------------------------------------------------------------------------------
@@ -469,7 +472,7 @@ static void check(bool ok, const char* fmt, ...) {
 static const char* screenName(UiModel::Screen s) {
   switch (s) { case UiModel::Screen::Boot: return "Boot"; case UiModel::Screen::Main: return "Main"; case UiModel::Screen::SaveGauge: return "SaveGauge";
                case UiModel::Screen::SaveSuccess: return "SaveSuccess"; case UiModel::Screen::Notice: return "Notice"; case UiModel::Screen::Fault: return "Fault";
-               case UiModel::Screen::Count: break; }
+               case UiModel::Screen::Arrived: return "Arrived"; case UiModel::Screen::Count: break; }
   return "?";
 }
 struct Sample { uint32_t t; double h; double tofH; double duty; bool dirUp; UiModel::Screen screen; UiModel::Arrow arrow; uint8_t gauge; bool linkUp;
@@ -605,10 +608,22 @@ struct Rig {
   void tap(int bit, uint32_t ms) { press(bit); run(ms); release(bit); }
   void shot(const char* name) {
     char path[256]; snprintf(path, sizeof(path), "shots/%s.ppm", name);
-    // let the display catch up before photographing
-    if (hmi) for (int i = 0; i < 60; i++) hmi->updateDisplay(g_now + 100 + i * 30);
+    if (hmi) hmi->updateDisplay(g_now);                  // core 1 already draws every ms (at most every DISPLAY_MIN_PERIOD_MS)
     lcd.savePpm(path);
     shotNames.push_back(name);
+  }
+  // Runs `ms` and photographs the panel every DISPLAY_ANIM_STEP_MS into shots/<name>/NNN.ppm (preview.sh makes a GIF).
+  // Only with SIM_FILM set in the environment: several hundred pictures.
+  void film(const char* name, uint32_t ms) {
+    static std::map<std::string, unsigned> frames;
+    if (!getenv("SIM_FILM")) { run(ms); return; }
+    char path[256]; snprintf(path, sizeof(path), "shots/%s", name);
+    mkdir(path, 0755);
+    for (uint32_t t = 0; t < ms; t += DISPLAY_ANIM_STEP_MS) {
+      snprintf(path, sizeof(path), "shots/%s/%03u.ppm", name, frames[name]++);
+      lcd.savePpm(path);
+      run(DISPLAY_ANIM_STEP_MS);
+    }
   }
   const Sample* at(uint32_t t) const { for (const Sample& s : trace) if (s.t >= t) return &s; return trace.empty() ? nullptr : &trace.back(); }
   double maxDutyBetween(uint32_t a, uint32_t b) const { double m = 0; for (const Sample& s : trace) if (s.t >= a && s.t <= b && s.duty > m) m = s.duty; return m; }
@@ -647,7 +662,6 @@ static void testBoot() {
   check(std::fabs(r.ctrl.ui().heightMm - r.w.h) < 6.0, "displayed height %d vs true %.1f", r.ctrl.ui().heightMm, r.w.h);
   check(r.w.duty() == 0.0 && r.w.pwmStuckHigh == 0, "motor should be idle at boot");
   check(r.lcd.coverage() > 0.999, "only %.1f %% of the panel drawn", 100 * r.lcd.coverage());
-  r.shot("01_idle");
   printf("  1 s of link: %u polls, %u answers, %llu bytes sent by the motherboard\n", polls, replies, (unsigned long long)r.mbUart.txBytes);
 }
 
@@ -663,7 +677,6 @@ static void testManualUp() {
   r.run(1300);
   double d1600 = r.w.duty();
   r.run(1400);
-  r.shot("02_moving_up");
   check(r.ctrl.ui().arrow == UiModel::Arrow::Up, "arrow should be Up while moving up");
   r.release(UP);
   uint32_t tr = g_now;
@@ -692,7 +705,6 @@ static void testManualDown() {
   double h0 = r.w.h;
   r.press(DOWN);
   r.run(2500);
-  r.shot("03_moving_down");
   check(!r.at(g_now - 100)->dirUp, "DIR pin should be at the DOWN level");
   check(r.ctrl.ui().arrow == UiModel::Arrow::Down, "arrow should be Down");
   r.release(DOWN);
@@ -718,7 +730,7 @@ static void testPresetSave() {
     if (u.screen == UiModel::Screen::SaveGauge) { if (u.gaugePercent < lastGauge) gaugeMono = false; lastGauge = u.gaugePercent; }
     if (!shot35 && u.screen == UiModel::Screen::SaveGauge && u.gaugePercent >= 35) { r.shot("04_gauge_35"); shot35 = 1; }
     if (!shot85 && u.screen == UiModel::Screen::SaveGauge && u.gaugePercent >= 85) { r.shot("05_gauge_85"); shot85 = 1; }
-    if (tSuccess && !r.shotNames.empty() && r.shotNames.back() != "06_success" && g_now - tp > tSuccess + 150) { r.shot("06_success"); }
+    if (tSuccess && !r.shotNames.empty() && r.shotNames.back() != "06_success" && g_now - tp > tSuccess + 450) { r.shot("06_success"); }
   }
   check(tGauge >= 400 && tGauge <= 400 + kPressLatencyMs, "gauge appeared %u ms after the press (expected 400-%u)", tGauge, 400 + kPressLatencyMs);
   check(tSuccess >= 1990 && tSuccess <= 2000 + kPressLatencyMs, "success shown %u ms after the press (expected 2000-%u)", tSuccess, 2000 + kPressLatencyMs);
@@ -1236,12 +1248,169 @@ static void testGaugeScreens() {
 }
 
 // ------------------------------------------------------------------------------------------------
+//  Pixel-art screens (hmi_firmware/src/scene.h), checked on the emulated panel
+// ------------------------------------------------------------------------------------------------
+// Presets already in the EEPROM when the boards start (0 = not saved).
+static void presetEeprom(uint16_t p1, uint16_t p2, uint16_t p3) {
+  memset(EEPROM.mem, 0xFF, sizeof(EEPROM.mem));
+  Presets p; p.begin();
+  const uint16_t mm[3] = {p1, p2, p3};
+  for (uint8_t i = 0; i < 3; i++) if (mm[i]) p.save(i, mm[i]);
+}
+
+// Logical pixels (4 x 4 panel pixels, Canvas grid) of a given ink inside a rectangle of the 60 x 60 grid.
+static unsigned inkCount(const Lcd& lcd, int x0, int y0, int x1, int y1, uint8_t ink) {
+  const uint16_t c = Canvas::color(ink);
+  unsigned n = 0;
+  for (int y = y0; y <= y1; y++) for (int x = x0; x <= x1; x++) if (lcd.fb[(y * 4 + 1) * 240 + x * 4 + 1] == c) n++;
+  return n;
+}
+static unsigned inkCountAll(const Lcd& lcd, uint8_t ink) { return inkCount(lcd, 0, 0, 59, 59, ink); }
+
+// Pill of preset i (0..2): 7 x 9 logical pixels at x = 17 + 10 i, y = 41
+static unsigned pillInk(const Lcd& lcd, int i, uint8_t ink) { return inkCount(lcd, 17 + 10 * i, 41, 23 + 10 * i, 49, ink); }
+
+static void testPixelArt() {
+  printf("\n[pixel-art screens] ring, presets, chevrons, save, automatic move and arrival, asleep\n");
+  presetEeprom(740, 1100, 0);
+  {
+    Rig r(1012.0, true);
+    r.run(1200);                                         // HMI panel up (0.7 s)
+    const UiModel& u = r.ctrl.ui();
+    check(u.presetMm[0] == 740 && u.presetMm[1] == 1100 && u.presetMm[2] == UiModel::kNoPreset, "presets sent: %u %u %u",
+          u.presetMm[0], u.presetMm[1], u.presetMm[2]);
+    check(u.ringMinMm == HEIGHT_MIN_MM && u.ringMaxMm == HEIGHT_MAX_MM, "ring range sent: %d..%d", u.ringMinMm, u.ringMaxMm);
+    check(inkCountAll(r.lcd, kLavender) > 150 && inkCountAll(r.lcd, kGreen) == 0, "at rest the ring should be lavender");
+    check(pillInk(r.lcd, 0, kSteel) > 15 && pillInk(r.lcd, 2, kDusk) > 5 && pillInk(r.lcd, 2, kSteel) == 0,
+          "pills: preset 1 outlined, preset 3 dotted");
+    check(inkCountAll(r.lcd, kGold) == 0, "gold on the screen while the desk is on no preset");
+    r.shot("01_idle");
+    r.press(UP); r.run(1500);
+    unsigned chevrons = inkCount(r.lcd, 24, 8, 35, 20, kGreen) + inkCount(r.lcd, 24, 8, 35, 20, kMint);
+    check(chevrons > 20, "green chevrons while going up: %u pixels", chevrons);
+    check(inkCountAll(r.lcd, kGreen) > 150 && inkCountAll(r.lcd, kLavender) == 0, "the ring should turn green while going up");
+    r.run(1500);
+    r.shot("02_moving_up");
+    r.release(UP); r.run(700);
+    check(inkCount(r.lcd, 24, 8, 35, 20, kForest) + inkCount(r.lcd, 24, 8, 35, 20, kGreen) == 0, "chevrons left after the stop");
+    check(inkCountAll(r.lcd, kLavender) > 150, "ring not back to lavender after the stop");
+    r.press(DOWN); r.run(1500);
+    check(inkCount(r.lcd, 24, 8, 35, 20, kOrange) + inkCount(r.lcd, 24, 8, 35, 20, kPeach) > 20, "orange chevrons while going down");
+    r.run(1500);
+    r.shot("03_moving_down");
+    r.release(DOWN); r.run(700);
+
+    // long press on the empty preset 3: floppy + cyan gauge, then SAVED in gold, then its pill is gold
+    r.press(P3); r.run(1000);
+    check(r.ctrl.ui().screen == UiModel::Screen::SaveGauge, "gauge expected, screen %s", screenName(r.ctrl.ui().screen));
+    check(inkCount(r.lcd, 24, 8, 35, 19, kCyan) > 40 && inkCount(r.lcd, 24, 8, 35, 19, kCream) > 20, "floppy not drawn");
+    check(inkCountAll(r.lcd, kCyan) > 80, "cyan gauge not drawn");
+    r.run(1200);
+    check(r.ctrl.ui().screen == UiModel::Screen::SaveSuccess, "save success expected, screen %s", screenName(r.ctrl.ui().screen));
+    r.run(300);
+    check(inkCount(r.lcd, 20, 8, 38, 19, kGold) > 30, "check mark and SAVED not drawn");
+    r.release(P3); r.run(2000);
+    check(r.ctrl.ui().screen == UiModel::Screen::Main && r.presets.isSet(2), "after the save: screen %s, preset 3 %s",
+          screenName(r.ctrl.ui().screen), r.presets.isSet(2) ? "saved" : "missing");
+    check(pillInk(r.lcd, 2, kGold) > 40, "the pill of the preset just saved should be gold (desk on it)");
+  }
+  {
+    // automatic move from 100 cm to preset 2 (110 cm): flag, dotted path, then the arrival overlay and its gold ding
+    presetEeprom(740, 1100, 0);
+    Rig r(1000.0, true);
+    r.run(1200);                                         // HMI panel up (0.7 s)
+    r.tap(P2, 100);
+    r.run(1500);
+    check(r.ctrl.ui().screen == UiModel::Screen::Main && r.ctrl.ui().presetNumber == 2 && r.ctrl.ui().arrow == UiModel::Arrow::Up,
+          "automatic move: screen %s, preset %u", screenName(r.ctrl.ui().screen), r.ctrl.ui().presetNumber);
+    check(inkCountAll(r.lcd, kOchre) > 15, "no dotted path to the target");
+    check(inkCount(r.lcd, 15, 11, 45, 19, kGold) > 20, "flag and target height not drawn");
+    r.shot("16_goto");
+    uint32_t tArrived = 0, tMain = 0;
+    for (int i = 0; i < 15000 && !tMain; i++) {
+      r.step();
+      if (!tArrived && r.ctrl.ui().screen == UiModel::Screen::Arrived) {
+        tArrived = g_now;
+        check(r.w.duty() < 0.2 && r.ctrl.ui().presetNumber == 2, "arrival: duty %.2f, preset %u", r.w.duty(), r.ctrl.ui().presetNumber);
+      }
+      if (tArrived && g_now - tArrived == 2 * DISPLAY_ANIM_STEP_MS - 20) {
+        check(inkCountAll(r.lcd, kGold) > 150, "gold ding: %u gold pixels", inkCountAll(r.lcd, kGold));
+        r.shot("17_arrived");
+      }
+      if (tArrived && r.ctrl.ui().screen == UiModel::Screen::Main) tMain = g_now;
+    }
+    check(tArrived && tMain && tMain - tArrived >= OVERLAY_ARRIVED_MS && tMain - tArrived <= OVERLAY_ARRIVED_MS + 20,
+          "arrival overlay shown %u ms", tMain - tArrived);
+    check(std::fabs(r.w.h - 1100) <= 5.0, "goto ended at %.1f mm", r.w.h);
+    r.run(500);
+    check(pillInk(r.lcd, 1, kGold) > 40 && inkCountAll(r.lcd, kOchre) == 0, "at rest on preset 2: gold pill, no path left");
+  }
+  {
+    // on preset 1 already: a short press plays the ding, nothing moves; then asleep after DISPLAY_SLEEP_AFTER_MS
+    presetEeprom(740, 1100, 0);
+    Rig r(740.0, true);
+    r.run(1200);                                         // HMI panel up (0.7 s)
+    check(pillInk(r.lcd, 0, kGold) > 40, "on preset 1 at boot: its pill should be gold");
+    r.tap(P1, 100); r.run(80);
+    check(r.ctrl.ui().screen == UiModel::Screen::Arrived && r.ctrl.ui().presetNumber == 1 && r.w.maxDuty == 0.0,
+          "already there: screen %s, duty %.2f", screenName(r.ctrl.ui().screen), r.w.maxDuty);
+    r.run(DISPLAY_SLEEP_AFTER_MS - 1000);
+    check(inkCount(r.lcd, 20, 4, 40, 21, kLavender) + inkCount(r.lcd, 20, 4, 40, 21, kLilac) +
+          inkCount(r.lcd, 20, 4, 40, 21, kPlum) == 0, "Zz before DISPLAY_SLEEP_AFTER_MS");
+    r.run(3000);
+    check(inkCount(r.lcd, 20, 4, 40, 21, kLavender) + inkCount(r.lcd, 20, 4, 40, 21, kLilac) +
+          inkCount(r.lcd, 20, 4, 40, 21, kPlum) > 8, "no Zz after DISPLAY_SLEEP_AFTER_MS at rest");
+    r.run(900);                                           // a newborn "z" next to the previous one, grown into a "Z"
+    r.shot("18_asleep");
+    r.press(UP); r.run(300);
+    check(inkCount(r.lcd, 20, 4, 40, 21, kLavender) + inkCount(r.lcd, 20, 4, 40, 21, kLilac) == 0, "Zz still there while moving");
+    r.release(UP); r.run(600);
+  }
+  memset(EEPROM.mem, 0xFF, sizeof(EEPROM.mem));
+}
+
+// SIM_FILM=1 ./run.sh: the five animations as picture sequences in shots/anim_*/ (preview.sh turns them into GIFs)
+static void filmAnimations() {
+  if (!getenv("SIM_FILM")) return;
+  printf("\n[films] shots/anim_*/\n");
+  {
+    presetEeprom(740, 1100, 0);
+    Rig r(1012.0, true); r.run(1200);
+    r.film("anim_up", 500); r.press(UP); r.film("anim_up", 4500); r.release(UP); r.film("anim_up", 1000);
+  }
+  {
+    presetEeprom(740, 1100, 0);
+    Rig r(905.0, true); r.run(1200);
+    r.film("anim_down", 500); r.press(DOWN); r.film("anim_down", 4500); r.release(DOWN); r.film("anim_down", 1000);
+  }
+  {
+    presetEeprom(740, 1100, 0);
+    Rig r(950.0, true); r.run(1200);
+    r.film("anim_save", 500); r.press(P3); r.film("anim_save", 2300); r.release(P3); r.film("anim_save", 2200);
+  }
+  {
+    presetEeprom(740, 1100, 0);
+    Rig r(740.0, true); r.run(1200);
+    r.w.vMaxMmS *= 3;                                     // a desk three times faster: a shorter film
+    r.film("anim_goto", 500); r.tap(P2, 100); r.film("anim_goto", 7000);
+  }
+  {
+    presetEeprom(740, 1100, 0);
+    Rig r(740.0, true); r.run(1200);
+    r.run(DISPLAY_SLEEP_AFTER_MS);
+    r.film("anim_idle", 5200);
+  }
+  memset(EEPROM.mem, 0xFF, sizeof(EEPROM.mem));
+}
+
+// ------------------------------------------------------------------------------------------------
 //  Link: cord, polarity, data pair, noise
 // ------------------------------------------------------------------------------------------------
 static void testProtocol() {
   printf("\n[protocol] frame codec: round trip, CRC, resynchronisation, out-of-range fields\n");
   UiModel m; m.screen = UiModel::Screen::SaveSuccess; m.arrow = UiModel::Arrow::Down; m.heightMm = -12345; m.heightValid = true;
   m.presetNumber = 3; m.gaugePercent = 77; m.savedHeightMm = 1234; m.title = UiText::NoLink; m.subtitle = UiText::CheckCable;
+  m.presetMm[0] = 740; m.presetMm[2] = 1187; m.ringMinMm = 640; m.ringMaxMm = 1200;
   uint8_t payload[hmi::kStatePayloadSize]; payload[0] = 42; hmi::packUi(m, payload + 1);
   uint8_t frame[hmi::kMaxFrame];
   uint8_t n = hmi::encodeFrame(hmi::kTypeState, payload, sizeof(payload), frame);
@@ -1253,7 +1422,10 @@ static void testProtocol() {
   UiModel back;
   check(ok && p.type() == hmi::kTypeState && p.payload()[0] == 42 && hmi::unpackUi(p.payload() + 1, back), "frame not decoded after junk");
   check(back.screen == m.screen && back.arrow == m.arrow && back.heightMm == m.heightMm && back.heightValid && back.presetNumber == 3 &&
-        back.gaugePercent == 77 && back.savedHeightMm == 1234 && back.title == UiText::NoLink && back.subtitle == UiText::CheckCable, "UiModel round trip");
+        back.gaugePercent == 77 && back.savedHeightMm == 1234 && back.title == UiText::NoLink && back.subtitle == UiText::CheckCable &&
+        back.presetMm[0] == 740 && back.presetMm[1] == UiModel::kNoPreset && back.presetMm[2] == 1187 && back.ringMinMm == 640 &&
+        back.ringMaxMm == 1200, "UiModel round trip");
+  check(n == hmi::kStatePayloadSize + 5 && n <= hmi::kMaxFrame, "State frame of %u bytes", n);
   unsigned undetected = 0;
   for (uint8_t i = 1; i < n; i++) for (uint8_t bit = 0; bit < 8; bit++) {
     uint8_t f2[hmi::kMaxFrame]; memcpy(f2, frame, n); f2[i] ^= (uint8_t)(1 << bit);
@@ -1266,6 +1438,8 @@ static void testProtocol() {
   check(!hmi::unpackUi(bad, back), "an unknown screen number was accepted");
   hmi::packUi(m, bad); bad[9] = (uint8_t)UiText::Count;
   check(!hmi::unpackUi(bad, back), "an unknown text number was accepted");
+  hmi::packUi(m, bad); bad[5] = UiModel::kPresetSlots + 1;
+  check(!hmi::unpackUi(bad, back), "an unknown preset number was accepted");
 }
 
 static void testUnplugWhileMoving() {
@@ -1424,6 +1598,8 @@ int main() {
   testMonteCarlo();
   testWatchdogGuard();
   testGaugeScreens();
+  testPixelArt();
+  filmAnimations();
   testUnplugWhileMoving();
   testBootWithoutCord();
   testReversedCord();

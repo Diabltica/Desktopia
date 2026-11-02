@@ -269,8 +269,12 @@ void DeskController::startGoto(uint8_t presetIndex, uint32_t nowMs) {
   int16_t target = clampHeight((int16_t)_presets.get(presetIndex));
   int16_t h = _tof.heightMm();
   int16_t delta = (int16_t)(target - h);
-  if (delta >= -TARGET_TOLERANCE_MM && delta <= TARGET_TOLERANCE_MM) return;   // already there
+  if (delta >= -TARGET_TOLERANCE_MM && delta <= TARGET_TOLERANCE_MM) {         // already there: say so, nothing moves
+    showArrival(presetIndex, nowMs);
+    return;
+  }
   _target = target;
+  _presetIndex = presetIndex;
   _dir = delta > 0 ? Motor::Direction::Up : Motor::Direction::Down;
   beginMove(nowMs);
   _state = State::GotoPreset;
@@ -287,6 +291,7 @@ void DeskController::updateGoto(uint32_t nowMs) {
     _motor.stop();
     _state = State::Idle;
     _stateSince = nowMs;
+    showArrival(_presetIndex, nowMs);
     return;
   }
   if (!monitorMove(h, nowMs)) return;
@@ -367,10 +372,10 @@ void DeskController::finishSaving(uint32_t nowMs) {
   if (_presets.save(_presetIndex, (uint16_t)h)) {
     _overlay = Overlay::Success;
     _overlayUntil = nowMs + OVERLAY_SUCCESS_MS;
-    _successPreset = (uint8_t)(_presetIndex + 1);
+    _overlayPreset = (uint8_t)(_presetIndex + 1);
     _successHeight = h;
     DBG(F("preset "));
-    DBG(_successPreset);
+    DBG(_overlayPreset);
     DBG(F(" saved: "));
     DBGLN(h);
   } else {
@@ -415,6 +420,12 @@ void DeskController::showNotice(UiText title, UiText subtitle, uint32_t nowMs) {
   _noticeSubtitle = subtitle;
 }
 
+void DeskController::showArrival(uint8_t presetIndex, uint32_t nowMs) {
+  _overlay = Overlay::Arrived;
+  _overlayUntil = nowMs + OVERLAY_ARRIVED_MS;
+  _overlayPreset = (uint8_t)(presetIndex + 1);
+}
+
 // ---------------------------------------------------------------------------------------------
 //  Screen content
 // ---------------------------------------------------------------------------------------------
@@ -422,6 +433,12 @@ void DeskController::refreshUi(uint32_t nowMs) {
   _ui.heightMm = _tof.heightMm();
   _ui.heightValid = _tof.hasFreshHeight(nowMs);
   _ui.arrow = UiModel::Arrow::None;
+  _ui.presetNumber = 0;
+  for (uint8_t i = 0; i < UiModel::kPresetSlots; i++) {
+    _ui.presetMm[i] = _presets.isSet(i) ? _presets.get(i) : (uint16_t)UiModel::kNoPreset;
+  }
+  _ui.ringMinMm = HEIGHT_MIN_MM;
+  _ui.ringMaxMm = HEIGHT_MAX_MM;
 
   // A lost link shows what Idle would show (see updateFault()): it only matters once the link is back.
   State shown = (_state == State::Fault && _fault == FaultCode::Link) ? State::Idle : _state;
@@ -437,8 +454,11 @@ void DeskController::refreshUi(uint32_t nowMs) {
         _ui.subtitle = _noticeSubtitle;
       } else if (_overlay == Overlay::Success) {
         _ui.screen = UiModel::Screen::SaveSuccess;
-        _ui.presetNumber = _successPreset;
+        _ui.presetNumber = _overlayPreset;
         _ui.savedHeightMm = _successHeight;
+      } else if (_overlay == Overlay::Arrived) {
+        _ui.screen = UiModel::Screen::Arrived;
+        _ui.presetNumber = _overlayPreset;
       } else {
         _ui.screen = UiModel::Screen::Main;
       }
@@ -448,6 +468,7 @@ void DeskController::refreshUi(uint32_t nowMs) {
     case State::GotoPreset:
       _ui.screen = UiModel::Screen::Main;
       _ui.arrow = (_dir == Motor::Direction::Up) ? UiModel::Arrow::Up : UiModel::Arrow::Down;
+      if (shown == State::GotoPreset) _ui.presetNumber = (uint8_t)(_presetIndex + 1);
       break;
 
     case State::Saving: {

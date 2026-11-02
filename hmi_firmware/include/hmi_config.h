@@ -42,3 +42,12 @@
 #ifndef DISPLAY_DEADBAND_MM
 #define DISPLAY_DEADBAND_MM        2        // ignore +-2 mm jitter on the number while the desk is still
 #endif
+#ifndef DISPLAY_ANIM_STEP_MS
+#define DISPLAY_ANIM_STEP_MS       80       // one frame of the pixel-art animations (src/scene.h)
+#endif
+#ifndef DISPLAY_SLEEP_AFTER_MS
+#define DISPLAY_SLEEP_AFTER_MS     20000    // at rest this long → "Zz" above the height, a shine on the ring
+#endif
+#ifndef DISPLAY_PRESET_MATCH_MM
+#define DISPLAY_PRESET_MATCH_MM    10       // at rest within +-10 mm of a preset → its pill and mark turn gold
+#endif

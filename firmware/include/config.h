@@ -205,6 +205,9 @@
 #ifndef OVERLAY_SUCCESS_MS
 #define OVERLAY_SUCCESS_MS         1800
 #endif
+#ifndef OVERLAY_ARRIVED_MS
+#define OVERLAY_ARRIVED_MS         1200     // preset reached (or already there): the HMI board plays its "ding"
+#endif
 #ifndef FAULT_MIN_DISPLAY_MS
 #define FAULT_MIN_DISPLAY_MS       2500
 #endif

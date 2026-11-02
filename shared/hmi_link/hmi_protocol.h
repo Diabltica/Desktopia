@@ -20,8 +20,8 @@ namespace hmi {
 
 constexpr uint32_t kBaud = 250000UL;
 constexpr uint8_t kSync = 0xA5;
-constexpr uint8_t kVersion = 1;
-constexpr uint8_t kMaxPayload = 16;
+constexpr uint8_t kVersion = 2;              // 2: preset heights, ring range and the Arrived screen in the State frame
+constexpr uint8_t kMaxPayload = 24;
 constexpr uint8_t kMaxFrame = kMaxPayload + 5;
 
 enum FrameType : uint8_t {
@@ -29,7 +29,7 @@ enum FrameType : uint8_t {
   kTypeButtons = 0x81,   // HMI → master: seq (echo), button bits, protocol version
 };
 
-constexpr uint8_t kUiPackedSize = 11;
+constexpr uint8_t kUiPackedSize = 21;
 constexpr uint8_t kStatePayloadSize = 1 + kUiPackedSize;
 constexpr uint8_t kButtonsPayloadSize = 3;
 
