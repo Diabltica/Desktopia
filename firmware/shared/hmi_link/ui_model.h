@@ -2,7 +2,7 @@
 #include <stdint.h>
 
 // Fixed texts of the user interface. Only the number travels over the cable; the HMI board owns the strings
-// (hmi_firmware/src/ui_text.cpp). Append new entries at the end: the numbers are part of the link protocol.
+// (firmware/desktopia_HMI/src/ui_text.cpp). Append new entries at the end: the numbers are part of the link protocol.
 enum class UiText : uint8_t {
   None = 0,
   Desktopia,          // DESKTOPIA
@@ -40,7 +40,7 @@ enum class UiText : uint8_t {
 };
 
 // Everything the screen needs to know. The motherboard fills it and sends it over the cable;
-// the HMI board only reads it (and animates it: see hmi_firmware/src/scene.h).
+// the HMI board only reads it (and animates it: see firmware/desktopia_HMI/src/scene.h).
 struct UiModel {
   // Arrived: an automatic move has just reached its preset (shown for OVERLAY_ARRIVED_MS, then Main).
   enum class Screen : uint8_t { Boot, Main, SaveGauge, SaveSuccess, Notice, Fault, Arrived, Count };

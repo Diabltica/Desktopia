@@ -51,9 +51,10 @@ flowchart LR
 | [hardware/desktopia_HMI/](hardware/desktopia_HMI/) | HMI board KiCad project (schematic, PCB) | [README](hardware/desktopia_HMI/README.md) |
 | [hardware/kicad_library/](hardware/kicad_library/) | symbols and footprints shared by both KiCad projects (`JLCImport`, ...) | |
 | [hardware/render.sh](hardware/render.sh) | renders the schematic / PCB / 3D images of the board READMEs; run by the [*Hardware images*](.github/workflows/hardware-images.yml) workflow on every push | |
-| [firmware/](firmware/) | motherboard firmware (ATmega32U4, PlatformIO) and the PC simulation of both boards | [README](firmware/README.md) |
-| [hmi_firmware/](hmi_firmware/) | HMI board firmware (RP2040, PlatformIO) | [README](hmi_firmware/README.md) |
-| [shared/hmi_link/](shared/hmi_link/) | link protocol and screen model, compiled into both firmwares | [hmi_protocol.h](shared/hmi_link/hmi_protocol.h) |
+| [firmware/desktopia/](firmware/desktopia/) | motherboard firmware (ATmega32U4, PlatformIO) | [README](firmware/desktopia/README.md) |
+| [firmware/desktopia_HMI/](firmware/desktopia_HMI/) | HMI board firmware (RP2040, PlatformIO) | [README](firmware/desktopia_HMI/README.md) |
+| [firmware/shared/hmi_link/](firmware/shared/hmi_link/) | link protocol and screen model, compiled into both firmwares | [hmi_protocol.h](firmware/shared/hmi_link/hmi_protocol.h) |
+| [firmware/sim/](firmware/sim/) | PC simulation of both boards from their real sources (Linux / WSL) | [README](firmware/README.md#simulation-bench-optional) |
 | [mechanical/](mechanical/) | 3D-printed motor supports with silent blocks and jaw coupling (CadQuery scripts, STL / STEP, assembly report) | [README](mechanical/README.md) |
 | [documentation/](documentation/) | architecture drawing, VL53L1X datasheet | |
 
@@ -64,8 +65,8 @@ Tools: [KiCad 10](https://www.kicad.org/) for the boards, [PlatformIO](https://p
 1. **Boards**: open each KiCad project, update the PCB from the schematic and order it. Every assembled part has its
    JLCPCB / LCSC number in the `LCSC` field. Read the board READMEs first: both PCBs still have to be updated after
    the latest schematic changes.
-2. **HMI firmware**: `cd hmi_firmware && pio run -t upload` with the board in USB boot mode.
-3. **Motherboard firmware**: `cd firmware && pio run -t upload` (the board must be powered from its 24 V input).
+2. **HMI firmware**: `cd firmware/desktopia_HMI && pio run -t upload` with the board in USB boot mode.
+3. **Motherboard firmware**: `cd firmware/desktopia && pio run -t upload` (the board must be powered from its 24 V input).
 4. **First power-up**: follow [the checklist](firmware/README.md#first-power-up-do-it-in-this-order), with the motor
    decoupled from the desk at first.
 

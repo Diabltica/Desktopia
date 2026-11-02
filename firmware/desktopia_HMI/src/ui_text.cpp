@@ -1,7 +1,7 @@
 #include "ui_text.h"
 
 namespace {
-// Same order as enum UiText (shared/hmi_link/ui_model.h). Upper case = title (scale 3), lower case = subtitle.
+// Same order as enum UiText (firmware/shared/hmi_link/ui_model.h). Upper case = title (scale 3), lower case = subtitle.
 const char* const kTexts[] = {
   "",
   "DESKTOPIA",

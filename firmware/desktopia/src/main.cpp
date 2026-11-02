@@ -2,8 +2,8 @@
  * Desktopia – motorised standing desk controller, motherboard
  * ATmega32U4 (Arduino framework / PlatformIO)
  *
- * The screen and the buttons sit on the HMI board, which has its own RP2040 (hmi_firmware/).
- * Both boards talk over RS-485 through an RJ11 cord (shared/hmi_link/hmi_protocol.h).
+ * The screen and the buttons sit on the HMI board, which has its own RP2040 (firmware/desktopia_HMI/).
+ * Both boards talk over RS-485 through an RJ11 cord (firmware/shared/hmi_link/hmi_protocol.h).
  *
  * One file per function:
  *   hmi_link      RS-485 master: screen content out,  buttons       debounce, short / long press

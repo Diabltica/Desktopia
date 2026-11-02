@@ -4,7 +4,7 @@
  *
  *   hmi_app     link slave (core 0) + screen (core 1)      display    UI screens
  *   gc9a01      panel driver                               ui_text    strings behind the UiText numbers
- * Protocol shared with the motherboard: shared/hmi_link/. Tunables: include/hmi_config.h.
+ * Protocol shared with the motherboard: firmware/shared/hmi_link/. Tunables: include/hmi_config.h.
  * Pin map: include/hmi_pins.h.
  */
 #include <Arduino.h>

@@ -2,12 +2,12 @@
 
 Two boards, two firmwares, linked by an RJ11 cord (project overview: [../README.md](../README.md)):
 
-- **Motherboard** (this folder): ATmega32U4 (16 MHz, 5 V), Arduino framework, PlatformIO. Drives the motor (DIR + PWM)
-  and switches its driver's supply, watches the motor current (INA226), reads the height with a VL53L1CB, runs the state
-  machine and decides what the screen shows.
-- **HMI board** (`../hmi_firmware/`): RP2040, arduino-pico core. Draws the round GC9A01 screen, reads the 5 buttons and
-  answers the motherboard over RS-485.
-- **Shared** (`../shared/hmi_link/`): the link protocol and the screen model, compiled into both.
+- **Motherboard** ([desktopia/](desktopia/README.md)): ATmega32U4 (16 MHz, 5 V), Arduino framework, PlatformIO. Drives
+  the motor (DIR + PWM) and switches its driver's supply, watches the motor current (INA226), reads the height with a
+  VL53L1CB, runs the state machine and decides what the screen shows.
+- **HMI board** ([desktopia_HMI/](desktopia_HMI/README.md)): RP2040, arduino-pico core. Draws the round GC9A01 screen,
+  reads the 5 buttons and answers the motherboard over RS-485.
+- **Shared** (`shared/hmi_link/`): the link protocol and the screen model, compiled into both.
 
 ![UI preview](docs/ui_preview.png)
 
@@ -45,36 +45,39 @@ sends only the blocks that changed. The layout never moves:
 - the **pills 1-2-3** below the number, one per preset button: dotted = never saved, gold = the desk is on it.
 
 Colours: green going up, orange going down, cyan while saving, gold for the presets, lavender at rest. After 20 s at
-rest, "Zz" rise above the height and a shine runs up the ring. Timings and sprites: `../hmi_firmware/src/scene.cpp`.
+rest, "Zz" rise above the height and a shine runs up the ring. Timings and sprites: `desktopia_HMI/src/scene.cpp`.
 Boot, notice and fault screens are plain text in the same colours.
 
 ## File layout
 
 ```
-firmware/                        motherboard (ATmega32U4)
-  include/board_pins.h           pinout extracted from the schematic (Arduino numbers of the "leonardo" variant)
-  include/config.h               ALL motherboard settings, overridable with -DNAME=value in platformio.ini
-  src/main.cpp                   setup() / loop()
-  src/hmi_link.*                 RS-485 master: screen content out, button levels in
-  src/buttons.*                  debounce + short / long press
-  src/tof_sensor.*               VL53L1CB via the ST driver (STM32duino VL53L1X lib) + median filter
-  src/motor.*                    DIR + Timer1 PWM, soft start / soft stop, direction-change protection, driver supply
-  src/current_monitor.*          INA226: alert threshold, INT6 handler that cuts the motor, current reading
-  src/presets.*                  internal EEPROM (magic + version + CRC-8)
-  src/desk_controller.*          state machine, speed profile, safety checks
-  src/watchdog.*                 hardware watchdog: the interrupt cuts the PWM, the reset follows
+firmware/
+  desktopia/                     motherboard (ATmega32U4), PlatformIO project
+    include/board_pins.h         pinout extracted from the schematic (Arduino numbers of the "leonardo" variant)
+    include/config.h             ALL motherboard settings, overridable with -DNAME=value in platformio.ini
+    src/main.cpp                 setup() / loop()
+    src/hmi_link.*               RS-485 master: screen content out, button levels in
+    src/buttons.*                debounce + short / long press
+    src/tof_sensor.*             VL53L1CB via the ST driver (STM32duino VL53L1X lib) + median filter
+    src/motor.*                  DIR + Timer1 PWM, soft start / soft stop, direction-change protection, driver supply
+    src/current_monitor.*        INA226: alert threshold, INT6 handler that cuts the motor, current reading
+    src/presets.*                internal EEPROM (magic + version + CRC-8)
+    src/desk_controller.*        state machine, speed profile, safety checks
+    src/watchdog.*               hardware watchdog: the interrupt cuts the PWM, the reset follows
+  desktopia_HMI/                 HMI board (RP2040), PlatformIO project
+    include/hmi_pins.h           pinout extracted from desktopia_HMI.kicad_sch
+    include/hmi_config.h         HMI settings (link timing, debounce, screen)
+    src/main.cpp                 core 0: link + buttons, core 1: screen; RP2040 watchdog
+    src/hmi_app.*                link slave, A/B polarity detection, NO LINK screen, hand-over to core 1
+    src/display.*                picks the screen: pixel art (scene + canvas) or text (boot, notice, fault)
+    src/scene.*                  the pixel-art screens and their animations, sprites and fonts
+    src/canvas.*                 60 x 60 frame of 4 x 4 blocks, palette, sends only what changed
+    src/gc9a01.*                 panel driver
+    src/ui_text.*                the strings behind the text numbers sent by the motherboard
+  shared/hmi_link/               hmi_protocol.* (frames, CRC, UiModel packing), ui_model.h; found by both projects
+                                 through lib_extra_dirs = ../shared
   sim/                           PC simulation bench of BOTH boards (see below)
-hmi_firmware/                    HMI board (RP2040)
-  include/hmi_pins.h             pinout extracted from desktopia_HMI.kicad_sch
-  include/hmi_config.h           HMI settings (link timing, debounce, screen)
-  src/main.cpp                   core 0: link + buttons, core 1: screen; RP2040 watchdog
-  src/hmi_app.*                  link slave, A/B polarity detection, NO LINK screen, hand-over to core 1
-  src/display.*                  picks the screen: pixel art (scene + canvas) or text (boot, notice, fault)
-  src/scene.*                    the pixel-art screens and their animations, sprites and fonts
-  src/canvas.*                   60 x 60 frame of 4 x 4 blocks, palette, sends only what changed
-  src/gc9a01.*                   panel driver
-  src/ui_text.*                  the strings behind the text numbers sent by the motherboard
-shared/hmi_link/                 hmi_protocol.* (frames, CRC, UiModel packing), ui_model.h
+  docs/                          UI preview and animations above, built by sim/preview.sh
 ```
 
 ## The link (RS-485 over an RJ11 cord)
@@ -159,7 +162,7 @@ transceiver. The USB-C (through Schottky D1) only powers the board while it is f
 
 ## Build and flash
 
-Motherboard:
+Motherboard (from `desktopia/`):
 
 ```bash
 pio run                                   # build (env desktopia)
@@ -170,7 +173,7 @@ pio device monitor
 pio run -e desktopia_isp -t bootloader    # blank chip: burns bootloader + fuses via J2 (USBasp)
 ```
 
-HMI board (from `../hmi_firmware/`, the RP2040 platform and toolchain are downloaded on the first build):
+HMI board (from `desktopia_HMI/`, the RP2040 platform and toolchain are downloaded on the first build):
 
 ```bash
 pio run                                   # build (env hmi): .pio/build/hmi/firmware.uf2
@@ -188,7 +191,7 @@ HMI board ≈ 54 KB of flash, ≈ 19 KB of RAM.
 
 ## Main settings
 
-Motherboard (`include/config.h`):
+Motherboard (`desktopia/include/config.h`):
 
 | Parameter | Default | Purpose |
 |---|---|---|
@@ -209,7 +212,7 @@ Motherboard (`include/config.h`):
 | `HMI_LINK_TIMEOUT_MS` / `HMI_LINK_SETTLE_MS` | 40 / 100 | link declared down / trusted again |
 | `TOF_BYPASS` | 0 | 1 = height sensor ignored for motor control, **bench test only** (see below) |
 
-HMI board (`../hmi_firmware/include/hmi_config.h`): `DISPLAY_ROTATION` (3: screen module mounted with its pin header
+HMI board (`desktopia_HMI/include/hmi_config.h`): `DISPLAY_ROTATION` (3: screen module mounted with its pin header
 towards the buttons), `DISPLAY_SPI_HZ` (20 MHz),
 `HMI_DEBOUNCE_MS` (15), `HMI_POLARITY_SWAP_MS` (150), `HMI_NO_LINK_MS` (500), `DISPLAY_SLEEP_AFTER_MS` (20 s at rest
 before the "Zz"), `DISPLAY_PRESET_MATCH_MM` (± 10 mm: the desk is "on" a preset), `DISPLAY_ANIM_STEP_MS` (80 ms per

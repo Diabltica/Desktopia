@@ -2,7 +2,7 @@
 // Both boards run in the same process, from their real sources:
 //   motherboard (ATmega32U4): buttons, hmi_link, motor, presets, tof_sensor, current_monitor, desk_controller, watchdog
 //   HMI board (RP2040):        hmi_app, display, gc9a01, ui_text
-//   both:                      shared/hmi_link/hmi_protocol
+//   both:                      firmware/shared/hmi_link/hmi_protocol
 // against mocks of the Arduino cores, a simulated desk, a noisy ToF sensor, the switched driver supply (Q5), an INA226
 // with its ALERT line on INT6, an RS-485 bus (cord plugged / unplugged, data pair cut, A/B swapped by a reversed cord,
 // corrupted bytes) and a GC9A01 emulator that rebuilds the screen pixel by pixel. The two cores of the RP2040 are run
@@ -1248,7 +1248,7 @@ static void testGaugeScreens() {
 }
 
 // ------------------------------------------------------------------------------------------------
-//  Pixel-art screens (hmi_firmware/src/scene.h), checked on the emulated panel
+//  Pixel-art screens (firmware/desktopia_HMI/src/scene.h), checked on the emulated panel
 // ------------------------------------------------------------------------------------------------
 // Presets already in the EEPROM when the boards start (0 = not saved).
 static void presetEeprom(uint16_t p1, uint16_t p2, uint16_t p3) {

@@ -5123,7 +5123,7 @@
 		)
 		(uuid "e7733e71-1943-4f76-8bc9-9ed68ef14b7f")
 	)
-	(text "Firmware: hmi_firmware/ (PlatformIO, arduino-pico).\nFirst flash: hold BOOT (SW6), plug the USB-C, release -> USB drive, copy firmware.uf2.\nLink protocol: shared/hmi_link/hmi_protocol.h (250 kbaud, motherboard polls every 10 ms).\nPCB: J1, SW1-SW5, TP2-TP6 keep their footprints; FPC_HMI1 is replaced by J2 (RJ11)."
+	(text "Firmware: firmware/desktopia_HMI/ (PlatformIO, arduino-pico).\nFirst flash: hold BOOT (SW6), plug the USB-C, release -> USB drive, copy firmware.uf2.\nLink protocol: firmware/shared/hmi_link/hmi_protocol.h (250 kbaud, motherboard polls every 10 ms).\nPCB: J1, SW1-SW5, TP2-TP6 keep their footprints; FPC_HMI1 is replaced by J2 (RJ11)."
 		(exclude_from_sim no)
 		(at 292.1 210.82 0)
 		(effects

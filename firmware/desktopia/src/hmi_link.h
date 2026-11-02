@@ -3,7 +3,7 @@
 #include "hmi_protocol.h"
 #include "ui_model.h"
 
-// Master side of the RS-485 link to the HMI board (see shared/hmi_link/hmi_protocol.h).
+// Master side of the RS-485 link to the HMI board (see firmware/shared/hmi_link/hmi_protocol.h).
 // Every HMI_POLL_PERIOD_MS: sends the screen content, then listens for the button levels.
 // Never blocks longer than one frame transmission (~1.1 ms at 250 kbaud).
 class HmiLink {

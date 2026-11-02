@@ -140,7 +140,7 @@
 #endif
 
 /* ---------------------------------------------------------------------------
- *  Link to the HMI board (RS-485 over the RJ11 cord, protocol in shared/hmi_link/hmi_protocol.h)
+ *  Link to the HMI board (RS-485 over the RJ11 cord, protocol in firmware/shared/hmi_link/hmi_protocol.h)
  * ------------------------------------------------------------------------- */
 #ifndef HMI_POLL_PERIOD_MS
 #define HMI_POLL_PERIOD_MS         10     // one State frame (screen content) → one Buttons frame back
@@ -192,7 +192,7 @@
 #endif
 
 /* ---------------------------------------------------------------------------
- *  Screen content timing (the drawing itself is done by the HMI board, see hmi_firmware/include/hmi_config.h)
+ *  Screen content timing (the drawing itself is done by the HMI board, see firmware/desktopia_HMI/include/hmi_config.h)
  * ------------------------------------------------------------------------- */
 #ifndef BOOT_SCREEN_MS
 #define BOOT_SCREEN_MS             (TOF_BYPASS ? 3000 : 0)   // "DESKTOPIA / SENSOR BYPASS" warning after a reset

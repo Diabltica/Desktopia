@@ -1,6 +1,6 @@
 # Desktopia – motherboard
 
-KiCad 10 project: `desktopia.kicad_sch`, `desktopia.kicad_pcb`. Firmware: [../../firmware/](../../firmware/README.md).
+KiCad 10 project: `desktopia.kicad_sch`, `desktopia.kicad_pcb`. Firmware: [../../firmware/desktopia/](../../firmware/desktopia/README.md).
 
 The motherboard sits under the desk top. It takes the 24 V supply and passes it to the motor driver through a current
 shunt and a MOSFET switch. It measures the height and controls the motor driver. It also powers the HMI board and talks

@@ -5,7 +5,7 @@
  */
 
 /* ---------------------------------------------------------------------------
- *  Link to the motherboard (protocol: shared/hmi_link/hmi_protocol.h)
+ *  Link to the motherboard (protocol: firmware/shared/hmi_link/hmi_protocol.h)
  * ------------------------------------------------------------------------- */
 #ifndef HMI_TURNAROUND_US
 #define HMI_TURNAROUND_US          100      // pause before answering: the motherboard has released the bus
