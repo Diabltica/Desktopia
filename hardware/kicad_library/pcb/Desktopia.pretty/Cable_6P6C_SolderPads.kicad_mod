@@ -50,4 +50,15 @@
 	(fp_line (start 7.05 3.6) (end -7.05 3.6) (stroke (width 0.05) (type solid)) (layer "F.CrtYd") (uuid "d0f09a25-c2b1-4f79-a50c-0bee5d837370"))
 	(fp_line (start -7.05 3.6) (end -7.05 -9) (stroke (width 0.05) (type solid)) (layer "F.CrtYd") (uuid "0db079e8-a279-4d44-821e-ab3ded87cf23"))
 	(embedded_fonts no)
+	(model "${KIPRJMOD}/../kicad_library/pcb/Desktopia.3dshapes/Cable_6P6C_SolderPads.wrl"
+		(offset
+			(xyz 0 0 0)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 0)
+		)
+	)
 )

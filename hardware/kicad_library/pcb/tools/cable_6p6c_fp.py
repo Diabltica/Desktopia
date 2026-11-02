@@ -3,6 +3,7 @@ with a cable-tie strain relief, instead of an RJ11 jack (the HMI board sits at 4
 leaves over the board edge and lies flat against the desk, no 12 mm tall jack).
 
 Origin: centre of the pad row. The cord comes from -y (the board edge goes on the dashed Fab line).
+3D model: Desktopia.3dshapes/Cable_6P6C_SolderPads.wrl (cable_6p6c_3d.py), the cord under the board.
 usage: python cable_6p6c_fp.py [out.kicad_mod]
 """
 import os
@@ -88,8 +89,19 @@ fp = """(footprint "%s"
 	(attr through_hole exclude_from_pos_files exclude_from_bom)
 	%s
 	(embedded_fonts no)
+	(model "${KIPRJMOD}/../kicad_library/pcb/Desktopia.3dshapes/%s.wrl"
+		(offset
+			(xyz 0 0 0)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 0)
+		)
+	)
 )
-""" % (name, TIE_Y - SLOT_L / 2 - 1.3, u(), name, u(), u(), u(), "\n\t".join(items))
+""" % (name, TIE_Y - SLOT_L / 2 - 1.3, u(), name, u(), u(), u(), "\n\t".join(items), name)
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 open(OUT, "w", encoding="utf-8", newline="\n").write(fp)
 print(OUT)

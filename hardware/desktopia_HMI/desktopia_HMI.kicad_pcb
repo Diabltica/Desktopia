@@ -601,6 +601,17 @@
 			(uuid "4a63ce61-90ed-47f3-8c73-3febb6d03605")
 		)
 		(embedded_fonts no)
+		(model "${KIPRJMOD}/../kicad_library/pcb/Desktopia.3dshapes/Cable_6P6C_SolderPads.wrl"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 0 0 0)
+			)
+		)
 	)
 	(footprint "JLCImport:PG1350"
 		(locked yes)
