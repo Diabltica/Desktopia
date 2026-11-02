@@ -1,0 +1,6 @@
+cadquery>=2.4
+ezdxf
+trimesh
+numpy
+matplotlib
+pillow

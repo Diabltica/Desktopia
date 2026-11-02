@@ -54,6 +54,7 @@ flowchart LR
 | [firmware/](firmware/) | motherboard firmware (ATmega32U4, PlatformIO) and the PC simulation of both boards | [README](firmware/README.md) |
 | [hmi_firmware/](hmi_firmware/) | HMI board firmware (RP2040, PlatformIO) | [README](hmi_firmware/README.md) |
 | [shared/hmi_link/](shared/hmi_link/) | link protocol and screen model, compiled into both firmwares | [hmi_protocol.h](shared/hmi_link/hmi_protocol.h) |
+| [mechanical/](mechanical/) | 3D-printed motor supports with silent blocks and jaw coupling (CadQuery scripts, STL / STEP, assembly report) | [README](mechanical/README.md) |
 | [documentation/](documentation/) | architecture drawing, VL53L1X datasheet | |
 
 ## Getting started
