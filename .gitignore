@@ -33,3 +33,6 @@ fp-info-cache
 
 # Editor settings (paths of the local machine)
 .vscode/
+
+# Python bytecode (hardware/kicad_library/pcb/tools)
+__pycache__/
