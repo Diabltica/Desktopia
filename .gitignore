@@ -27,3 +27,9 @@ fp-info-cache
 # Exported BOM files
 *.xml
 *.csv
+
+# KiCad 10 local history (a git repository in each project folder)
+.history/
+
+# Editor settings (paths of the local machine)
+.vscode/
