@@ -19,7 +19,7 @@ def export(obj, name, stl=True):
 
 if __name__ == "__main__":
     print("jaw coupling")
-    export(hub_a(), "hub_a_drill_side")
+    export(hub_a(), "hub_a_drill_side", stl=False)   # STEP only: merged with the drill adapter in ../../solidworks (drill hub)
     export(hub_b(), "hub_b_flange_side")
     export(spider(), "spider_tpu")
     export(flange_coupler(), "flange_coupler_6.35mm", stl=False)

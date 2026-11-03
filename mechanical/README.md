@@ -4,12 +4,14 @@ Two printed supports that slide along the motor axis onto four fixed plots under
 tongue 1.5 mm, interference 0.30 mm per side), **plus the two elastic elements that isolate the vibration**:
 
 * **mount path** (drill body → wood): two TPU cushions around the plate on every plot (8 in total), the silent blocks of this version;
-* **shaft path** (drill → desk axis): the jaw coupling with its TPU spider (hubs A and B), carried over from the previous prototype.
+* **shaft path** (drill → desk axis): the jaw coupling with its TPU spider, carried over from the previous prototype. On the drill side, the drill
+  adapter and hub A are now **one printed part, the drill hub** (no more screws or inserts between them); hub B is on the desk shaft.
 
 ![assembly](docs/assembly_sections.png)
 
 The full report is `docs/slide_mount_assembly_report.pdf` (18 pages, A4 landscape): dimensioned plans, silent blocks, vibration estimate,
-plank layout, assembly pictures, bill of materials, coupling, validation plan and open items.
+plank layout, assembly pictures, bill of materials, coupling, validation plan and open items. The report predates the drill hub: its pages still
+show hub A screwed onto the drill adapter (4 M3 x 8 and 4 inserts). [BOM.md](BOM.md) is up to date.
 
 ## Folder layout
 
@@ -19,15 +21,15 @@ plank layout, assembly pictures, bill of materials, coupling, validation plan an
 | `stl/` | generated meshes, ready to slice (`*_x2`, `*_x4`, `*_x8` = the full print plate) |
 | `step/` | generated STEP models, check assemblies and the DXF profile of the clip |
 | `docs/` | generated report (PDF), figures, and the assembly pictures in `docs/img/` |
-| `solidworks/` | original SolidWorks part of the drill adapter (`drillAdapter.SLDPRT` and its STL export), not generated |
+| `solidworks/` | the drill hub, made in SolidWorks (not generated): assembly `DrillAdapter+hub.SLDASM` of `drillAdapterV4.SLDPRT` and `hub_a_drill_side.SLDPRT` (imported from `step/hub_a_drill_side.step`), and `DrillAdapter+hub.STL` to print |
 
 ## Parts
 
 **Full bill of materials in [BOM.md](BOM.md)**: printed parts with their print settings and filament, screws and inserts, the bought
 coupler, the reused parts and the tools.
 
-In short: 2 clip plates, 4 plots, 2 ring supports and the 2 coupling hubs in PETG; 8 cushions and the spider (+1 spare) in TPU 85A;
-12 M3 heat-set inserts, 12 M3 cap screws (x 5, x 6, x 8), 4 wood screws dia 3 x 25 and one rigid flange coupler bore 6.35. No washers.
+In short: 2 clip plates, 4 plots, 2 ring supports, the drill hub and hub B in PETG; 8 cushions and the spider (+1 spare) in TPU 85A;
+8 M3 heat-set inserts, 8 M3 cap screws (x 5, x 6), 4 wood screws dia 3 x 25 and one rigid flange coupler bore 6.35. No washers.
 Check assemblies and the coupler model: `step/assembly_check.step`, `step/assembly_coupler*.step`, `step/flange_coupler_6.35mm.step`.
 
 ## Stack (desk frame: x = motor axis toward the coupler, y toward the vertical wood, z up, origin on the axis)
@@ -96,7 +98,7 @@ clip snaps behind it, the slot end stops the motor and the coupling jaws engage.
 ```
 pip install -r source/requirements.txt
 python source/build_slide_mount.py         # supports, plots, cushions, clip files, check assembly
-python source/coupling/build_coupling.py   # hubs, spider, flange coupler, check assemblies
+python source/coupling/build_coupling.py   # hub B, spider, flange coupler, hub A (STEP only, for the drill hub), check assemblies
 python source/make_figures.py && python source/steps_images.py
 python source/sldprt_reader/compare_rings.py motor_mount.SLDPRT motor_front_mount.SLDPRT   # check the rings against your files
 python source/report/build_report.py       # the PDF report

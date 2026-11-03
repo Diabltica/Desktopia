@@ -14,19 +14,18 @@ Bambu Lab A1 mini, 0.4 mm nozzle. Slicer settings of each material in [section 6
 | C | **TPU cushion** (silent block): ring washer dia 12 / 5.8 x 1.5, wheel pattern | 8 | TPU 85A | `stl/cushions_x8.stl` (all eight) | flat | 2 walls, 3 top / bottom | 8 x 0.09 |
 | D | Ring support motor_mount: ring dia 48.5 / 54 x 15, side slots and side windows, pad with 2 insert pockets | 1 | PETG | `stl/ring_support_motor_mount_print.stl` | ring axis vertical, x = 0 rim down | 4 walls, 25 % | 5.99 |
 | E | Ring support front mount: ring dia 48 / 54 x 12, four slots at 45 degrees (the 6.2 wide one is the key), pad with 2 insert pockets | 1 | PETG | `stl/ring_support_front_mount_print.stl` | ring axis vertical | 4 walls, 25 % | 5.70 |
-| F | Coupling hub A (drill side), dia 33 x 13, 3 jaws | 1 | PETG | `stl/hub_a_drill_side.stl` | base down | 4 walls | 5.02 |
+| F | **Drill hub**, dia 33 x 37: drill adapter V4 (threaded bore for the drill spindle) and coupling hub A (3 jaws) in one part | 1 | PETG | `solidworks/DrillAdapter+hub.STL` | threaded end down, jaws up | 4 walls | 9.83 |
 | G | Coupling hub B (flange side), dia 33 x 13, 3 jaws | 1 | PETG | `stl/hub_b_flange_side.stl` | base down | 4 walls | 4.89 |
 | H | Coupling spider, dia 33 x 8.5 | 1 + 1 spare | TPU 85A | `stl/spider_tpu.stl` | flat, lobes up | 4 walls, 100 % | 2.58 |
-| I | Drill adapter (drillAdapterV3): body dia 19.6 with a threaded bore 14 deep for the drill spindle (pitch 1.5, modelled dia 12.0 / 13.6), flange dia 22 x 10 with 4 dia 4.0 insert holes on dia 16, central dia 5.6 hole with a dia 9 counterbore | 1 | not recorded | `solidworks/drillAdapter.STL` | not recorded | not recorded | 5.32 |
 
-I comes from the previous prototype: skip it if you already have it. Only hubs F and G need support, and only under the
-dia 22.2 x 1 recess of their bed face.
+Support: under the dia 33 base of F, which overhangs the dia 22 flange of the adapter by 5.4 mm, and under the dia 22.2 x 1 recess of G.
+Nothing else needs support.
 
 **Filament** (solid volume of the STL, so an upper bound: the parts at 25 % infill use less):
 
 | Material | Parts | Volume | Mass at 100 % infill |
 |---|---|---|---|
-| PETG / PETG Matte | A to G | 33.4 cm3 | about 42 g (49 g with I) |
+| PETG / PETG Matte | A, B, D to G | 38.2 cm3 | about 48 g |
 | TPU 85A | C and H, spare spider included | 5.9 cm3 | about 7 g |
 
 Densities assumed: PETG 1.27, TPU 1.2 g/cm3.
@@ -49,17 +48,15 @@ Densities assumed: PETG 1.27, TPU 1.2 g/cm3.
 | 1 | Wood screw dia 3 x 25, countersunk, head dia 6 (DIN 7997 or chipboard screw) | 4 | plots B into the plank | pilot dia 2.0-2.2 x 14, about 13 mm in the wood. Plank under 15 mm thick: dia 3 x 20 |
 | 2 | M3 heat-set insert, **short**: L 3.0 at most, for a dia 4.0 x 3.2 pocket | 4 | ring supports D and E, 2 per pad | flush with the pad face |
 | 3 | M3 x 5 socket head cap screw (ISO 4762 / DIN 912) | 4 | clip plates A onto the pads | dia 5.8 x 3.2 counterbore; 0.3 N.m at most. M3 x 6 would reach the bottom of the pocket |
-| 4 | M3 x 8 socket head cap screw (ISO 4762 / DIN 912) | 4 | hub F onto the drill adapter I | dia 5.8 x 3.2 counterbore, about 6 mm of thread in the adapter |
-| 5 | M3 heat-set insert, for a dia 4.0 x 4.2 pocket (L 4.2 at most) | 4 | hub G | on the flange side |
-| 6 | M3 x 6 socket head cap screw (ISO 4762 / DIN 912) | 4 | flange coupler onto hub G | through the 2 mm flange, 4 mm in the insert |
-| 7 | M3 heat-set insert, for a dia 4.0 hole | 4 | drill adapter I | already in the adapter of the previous prototype |
+| 4 | M3 heat-set insert, for a dia 4.0 x 4.2 pocket (L 4.2 at most) | 4 | hub G | on the flange side |
+| 5 | M3 x 6 socket head cap screw (ISO 4762 / DIN 912) | 4 | flange coupler onto hub G | through the 2 mm flange, 4 mm in the insert |
 
-The CAD models the cap screw heads as dia 5 x 3; an ISO 4762 M3 head (dia 5.5 x 3) also fits the dia 5.8 counterbores.
+The CAD models the cap screw heads as dia 5 x 3; an ISO 4762 M3 head (dia 5.5 x 3) also fits the dia 5.8 counterbores of A.
 
-**In total**: 12 M3 heat-set inserts (4 short + 4 + 4 for the adapter), 12 M3 cap screws (4 x 5, 4 x 6, 4 x 8), 4 wood screws dia 3 x 25.
+**In total**: 8 M3 heat-set inserts (4 short + 4), 8 M3 cap screws (4 x 5, 4 x 6), 4 wood screws dia 3 x 25.
 
-**Washers: none.** The TPU cushions C are the washers of the plots. The cap screw heads of A and F sit in dia 5.8 counterbores, where an M3
-washer (dia 7, DIN 125) does not fit; the heads of screws 6 bear on the steel flange of the coupler; the wood screws are countersunk.
+**Washers: none.** The TPU cushions C are the washers of the plots. The cap screw heads of A sit in dia 5.8 counterbores, where an M3
+washer (dia 7, DIN 125) does not fit; the heads of screws 5 bear on the steel flange of the coupler; the wood screws are countersunk.
 
 ## 3. Bought part
 
@@ -71,7 +68,7 @@ washer (dia 7, DIN 125) does not fit; the heads of screws 6 bear on the steel fl
 
 | Item | Notes |
 |---|---|
-| Drill motor (motor + gearbox), about 0.3 kg | its body goes into the rings D (dia 48.5) and E (dia 48); output screwed into the drill adapter I |
+| Drill motor (motor + gearbox), about 0.3 kg | its body goes into the rings D (dia 48.5) and E (dia 48); its spindle is screwed into the drill hub F |
 | Desk crank shaft dia 6.35 (IKEA Skarsta / Trotten) | takes the flange coupler |
 | Wood plank under the desk top | at least 15 mm thick. Its underside is assumed 36.0 above the shaft axis and sets the cushion thickness: measure it first (README, *Silent blocks*) |
 
@@ -92,5 +89,5 @@ washer (dia 7, DIN 125) does not fit; the heads of screws 6 bear on the steel fl
 | Drying | yes (PETG Matte absorbs moisture) | 70 degrees C for 8 h, then dry storage |
 | Nozzle / bed | 255 degrees C (230-260) / 70 degrees C (65-75) | 225 degrees C (215 if it strings) / 35 degrees C, no glue |
 | Layer / width / speed | 0.2 / 0.42 mm / standard, fan 30-50 % | 0.2 / 0.42 mm / 20 mm/s (15 for the first layer), fan 100 % |
-| Support | none, except under the recess of F and G | none; retraction 0.8 mm at 25 mm/s; 2 mm3/s at most |
+| Support | none, except under the base of F and the recess of G | none; retraction 0.8 mm at 25 mm/s; 2 mm3/s at most |
 | First print | one clip plate: it must click like sample 4 | one cushion on a plot: firm friction fit |
