@@ -76,6 +76,11 @@ def ring_z(y, r=24.25):
     return math.sqrt(r * r - y * y)
 
 
+def pocket_wall(r=24.25):
+    """ring wall left under an insert pocket, at its inner edge (r = bore radius)"""
+    return B.Z_PLATE_BOT + B.BOSS_H - B.INSERT_DEPTH - ring_z(B.SCREW_Y[1] - B.INSERT_D / 2, r)
+
+
 # ============================================================================ 1  summary
 def page_summary():
     zb = B.Z_PLATE_BOT; zp = zb + B.PLATE_T; zh = B.PLANK_Z - B.SH_LEN - B.HEAD_H
@@ -91,7 +96,7 @@ def page_summary():
         ('gap', ''),
         ('h', 'Vibration isolation: two paths, one elastic element each'),
         ('b', f'Mount path (drill body \u2192 wood): on every plot the plate floats between two TPU cushions (8 in total) with {B.GAP} mm of play on each side. No preload, so no friction when sliding in; the torque and the weight always meet TPU, never PETG on wood.'),
-        ('b', 'Shaft path (drill \u2192 desk axis): the jaw coupling with its TPU spider (hubs A and B, pages 14\u201316), carried over unchanged from the previous prototype.'),
+        ('b', 'Shaft path (drill \u2192 desk axis): the jaw coupling with its TPU spider (pages 14\u201316), carried over from the previous prototype. Hub A and the drill adapter are now one printed part, the drill hub (page 16).'),
         ('b', f'Estimate: cushion \u2248 {kw:.0f} N/mm, natural frequency \u2248 {fn:.0f} Hz, isolation above \u2248 {1.41 * fn:.0f} Hz (page 8). To be measured with the ADXL345.'),
         ('gap', ''),
         ('h', 'What changes compared with the previous prototype'),
@@ -103,7 +108,7 @@ def page_summary():
         ('b', f'Stack: plank 36.0 \u00b7 cushion {B.CUSH_T} \u00b7 play {B.GAP} \u00b7 plate {zp:.1f} \u2192 {zb:.1f} \u00b7 play {B.GAP} \u00b7 cushion {B.CUSH_T} \u00b7 head \u00d810 \u00d7 {B.HEAD_H} (bottom at z = {zh:.1f}).'),
         ('gap', ''),
         ('h', 'To validate'),
-        ('b', 'Axial spacing between the two supports (placeholder 80 mm). Slot mouths toward +x = toward the coupler (assumed). Rings and detrompeurs are taken from your two SLDPRT (checked to 0.002 mm); only their direction along x is assumed.'),
+        ('b', 'Slot mouths toward +x = toward the coupler (assumed). Rings and detrompeurs are taken from your two SLDPRT (checked to 0.002 mm); only their direction along x is assumed.'),
         ('b', 'Real distance from the shaft axis to the plank underside (36.0 assumed): it sets the cushion thicknesses (page 7).'),
     ]
     textblock(fig, 0.03, 0.885, wrap(items, 100), fs=7.5, lh=0.0222)
@@ -151,7 +156,7 @@ def page_overview():
         ('n', '4  TPU cushion, 2 per plot (\u00d78)'),
         ('gap', ''),
         ('h', 'Assembly order (pictures page 12)'),
-        ('n', '1  Heat-set inserts. Press 2 short M3 inserts into the pad pockets of each ring support (iron \u2248 230 \u00b0C), flush with the pad face.'),
+        ('n', '1  Heat-set inserts. Press 2 M3 \u00d7 4 inserts into the bosses of each ring support pad (iron \u2248 230 \u00b0C), flush with the boss face.'),
         ('n', '2  Plates. Screw each plate on its pad with 2 \u00d7 M3 \u00d7 5, mouths toward the coupler (+x). \u2264 0.3 N\u00b7m.'),
         ('n', '3  Cushions. Slide 2 cushions on the shoulder of each plot: one down to the head, one up to the flat top.'),
         ('n', '4  Plots. Drill the plank (page 11) and screw the 4 plots, flat top against the plank, at y = \u221237 and +19.'),
@@ -198,15 +203,18 @@ def page_stack():
     ax.annotate('', xy=(13.6, ring_z(14.0, 27.0)), xytext=(13.6, zh), arrowprops=dict(arrowstyle='<->', lw=0.8, color=DK))
     note(ax, (12.6, 19.4), f'{zh - ring_z(14.0, 27.0):.1f} (head corner\nto ring)', fs=6.8, ha='right')
     leader(ax, (12.7, 20.4), (13.6, 23.5), color=BLUE)
-    note(ax, (7.0, 16.2), 'ring \u00d754', fs=7, color='#555555')
+    note(ax, (7.0, 16.2), 'ring \u00d854', fs=7, color='#555555')
     ax = fig.add_axes([0.67, 0.39, 0.31, H]); endview(ax); ax.set_xlim(-13.5, 18.5); ax.set_ylim(15, 47)
     ax.set_title('C \u2014 plate on the pad (screw at y = +8)', fontsize=8.2, color=BLUE, loc='left', fontweight='bold')
     dim(ax, (12.6, zb), (12.6, zp), '', fs=7); note(ax, (13.0, (zb + zp) / 2), '6.0', fs=7)
-    dim(ax, (13.9, zb - B.INSERT_DEPTH), (13.9, zb), '', fs=7); note(ax, (14.3, zb - 1.6), f'{B.INSERT_DEPTH}', fs=7)
-    dim(ax, (6.0, 20.8), (10.0, 20.8), '', fs=7); note(ax, (8.0, 19.6), '\u00d84.0 pocket', fs=7, ha='center')
+    zi = zb + B.BOSS_H; z_tip = zp - 3.2 - 5.0
+    dim(ax, (13.9, zi - B.INSERT_DEPTH), (13.9, zi), '', fs=7); note(ax, (14.3, zi - 2.2), f'{B.INSERT_DEPTH}', fs=7)
+    dim(ax, (8.0 - B.INSERT_D / 2, 20.8), (8.0 + B.INSERT_D / 2, 20.8), '', fs=7); note(ax, (8.0, 19.6), f'\u00d8{B.INSERT_D} pocket', fs=7, ha='center')
     dim(ax, (5.1, zp + 1.6), (10.9, zp + 1.6), '', fs=7); note(ax, (8.0, zp + 3.0), '\u00d85.8 \u00d7 3.2 counterbore', fs=7, ha='center')
-    note(ax, (-13.2, 44.4), 'M3 \u00d7 5: head 3.0 (0.2 below the face),\n2.0 mm into the insert, 1.0 free', fs=6.8)
-    note(ax, (-13.2, 17.4), f'pocket floor to bore: \u2265 {zb - B.INSERT_DEPTH - ring_z(6.0):.1f} (inner edge)', fs=6.8)
+    note(ax, (-13.2, 44.4), f'M3 \u00d7 5: head 3.0 (0.2 below the face),\n{zi - z_tip:.1f} mm into the insert, {z_tip - (zi - B.INSERT_L):.1f} free', fs=6.8)
+    note(ax, (-13.2, 22.2), f'boss \u00d8{B.BOSS_D:.0f} \u00d7 {B.BOSS_H:.0f} in a \u00d8{B.PLATE_RECESS_D} \u00d7 {B.PLATE_RECESS_H}\nrecess under the plate', fs=6.8)
+    leader(ax, (-8.0, 23.4), (-8.0 - B.BOSS_D / 2 + 1.0, zb + 0.5), color=BLUE)
+    note(ax, (-13.2, 17.4), f'pocket floor to bore: \u2265 {pocket_wall():.1f} (inner edge)', fs=6.8)
     rows = [['Item', 'Value', 'Comment'],
             ['plank underside', 'z = 36.0', 'from the SolidWorks sketch'],
             ['top cushion', f'{zt:.1f} \u2192 {z1:.1f}', 'against the plank, friction fit on the shoulder'],
@@ -216,7 +224,7 @@ def page_stack():
             ['pad top = plate bearing face', f'z = {zb:.1f}', f'{zb - 27:.1f} above the ring top (27.0)'],
             ['plate end (ear / wood side)', 'y = \u221244.4 / +26.6', 'plank edge \u221244.48; wood face 27'],
             ['ring to wood', '1.0', 'relief flat at y = 26, |z| < 7.4'],
-            ['head B to ring', f'{zh - ring_z(14.0, 27.0):.1f}', 'closest point, ring \u00d754 at y = 14']]
+            ['head B to ring', f'{zh - ring_z(14.0, 27.0):.1f}', 'closest point, ring \u00d854 at y = 14']]
     table(fig, 0.03, 0.33, [0.0, 0.17, 0.33], rows, lh=0.0275, fs=7.3, widths=0.52)
     items = [('h', 'Notes'),
              ('b', f'The plate is carried by the pad and floats between the cushions ({B.GAP} mm of play each side): the plots only guide it, hold it down and take the couple, always through TPU.'),
@@ -276,11 +284,12 @@ def page_plate():
     for ys in B.SCREW_Y:
         ax.add_patch(Circle((ys, B.XC), 1.7, fc='white', ec=DK, lw=0.8, zorder=4))
         ax.add_patch(Circle((ys, B.XC), 2.9, fc='none', ec=DK, lw=0.6, ls=(0, (3, 2)), zorder=4))
+        ax.add_patch(Circle((ys, B.XC), B.PLATE_RECESS_D / 2, fc='none', ec=GREY, lw=0.6, ls=(0, (2, 2)), zorder=4))
     # pad outlines
     R(ax, -B.PAD_Y, B.PAD_Y, 0, 15, 'none', ec=GREY, lw=0.8, z=6, hatch=None).set_linestyle((0, (4, 3)))
     R(ax, -B.PAD_Y, B.PAD_Y, 1.5, 13.5, 'none', ec=BLUE, lw=0.8, z=6).set_linestyle((0, (4, 3)))
-    note(ax, (-11.7, 16.6), 'pad of the \u00d748.5 ring (15 wide)', fs=6.6, color='#666666', ha='left')
-    note(ax, (-11.7, -1.7), 'pad of the \u00d748 ring (12 wide)', fs=6.6, color=BLUE, ha='left')
+    note(ax, (-11.7, 16.6), 'pad of the \u00d848.5 ring (15 wide)', fs=6.6, color='#666666', ha='left')
+    note(ax, (-11.7, -1.7), 'pad of the \u00d848 ring (12 wide)', fs=6.6, color=BLUE, ha='left')
     center_line(ax, (0, -4.5), (0, 19.5))
     note(ax, (0.6, 19.4), 'motor axis (y = 0)', fs=6.8, ha='left')
     for yp in (B.Y_POST_EAR, B.Y_POST_WOOD):
@@ -300,20 +309,23 @@ def page_plate():
     ax.annotate('', xy=(-30, 19.2), xytext=(-30, 15.4), arrowprops=dict(arrowstyle='-|>', lw=1.6, color=RED))
     note(ax, (-48.5, 8.6), 'clip A (ear side)\nsee page 5', fs=7, ha='left', color=BLUE)
     note(ax, (23.8, 13.2), 'clip B\n(wood side)', fs=7, ha='left', color=BLUE)
-    note(ax, (-8.0, 11.6), '2 \u00d7 \u00d83.4, counterbore\n\u00d85.8 \u00d7 3.2 (top face)', fs=6.8, ha='center')
+    note(ax, (-8.0, 13.4), f'2 \u00d7 \u00d83.4, counterbore \u00d85.8 \u00d7 3.2 (top face),\nrecess \u00d8{B.PLATE_RECESS_D} \u00d7 {B.PLATE_RECESS_H} (bottom face)', fs=6.8, ha='center')
     # section through the screw (x-z), bottom left
     ax2 = fig.add_axes([0.04, 0.06, 0.24, 0.24]); ax2.set_aspect('equal'); ax2.axis('off'); ax2.set_xlim(-3, 19); ax2.set_ylim(-5, 9)
     R(ax2, 0, 15, 0, 6, ORANGE, z=3)
     R(ax2, B.XC - 2.9, B.XC + 2.9, 2.8, 6, 'white', z=4); R(ax2, B.XC - 1.7, B.XC + 1.7, 0, 2.8, 'white', z=4)
+    rr, rh = B.PLATE_RECESS_D / 2, B.PLATE_RECESS_H
+    R(ax2, B.XC - rr, B.XC + rr, 0, rh, 'white', z=4.1)
     center_line(ax2, (B.XC, -1.5), (B.XC, 7.2))
     dim(ax2, (-1.2, 0), (-1.2, 6), '6.0', tp=(-2.4, 3), fs=7)
     dim(ax2, (B.XC - 2.9, 7.0), (B.XC + 2.9, 7.0), '', fs=7); note(ax2, (B.XC, 8.0), '\u00d85.8 \u00d7 3.2', fs=7, ha='center')
-    dim(ax2, (B.XC - 1.7, -1.0), (B.XC + 1.7, -1.0), '', fs=7); note(ax2, (B.XC, -2.2), '\u00d83.4', fs=7, ha='center')
+    dim(ax2, (B.XC - 1.7, 1.9), (B.XC + 1.7, 1.9), '', fs=6.5); note(ax2, (B.XC + 2.2, 1.9), '\u00d83.4', fs=6.5, ha='left')
+    dim(ax2, (B.XC - rr, -1.0), (B.XC + rr, -1.0), '', fs=7); note(ax2, (B.XC, -2.4), f'\u00d8{B.PLATE_RECESS_D} \u00d7 {rh} (boss of the pad)', fs=7, ha='center')
     dim(ax2, (16.2, 0), (16.2, 2.8), '', fs=7); note(ax2, (16.8, 1.4), '2.8', fs=7)
     ax2.set_title('Section through a screw (y = \u00b18)', fontsize=7.8, color=BLUE, loc='left', fontweight='bold')
     items = [('h', 'Notes'),
              ('b', 'Two identical plates, one per ring support. The two slots are the clip of sample 4 (page 5), pitch 56, centred on y = \u221237 and y = +19.'),
-             ('b', 'The plate is fixed to the pad by 2 \u00d7 M3 \u00d7 5 only; it is centred on the ring in x (15 mm plate on a 12 mm ring: 1.5 mm overhang each side).'),
+             ('b', 'The plate is fixed to the pad by 2 \u00d7 M3 \u00d7 5 only; the two bosses of the pad fit in its recesses (0.2 mm play) and centre it on the ring in x (15 mm plate on a 12 mm ring: 1.5 mm overhang each side).'),
              ('b', 'Print flat so that the tongues bend in the plane of the layers: 5 walls, no support, bottom face on the bed.'),
              ('b', 'If your coupler is on the other side of the motor, use the mirrored plate (same part, mouths toward \u2212x).')]
     textblock(fig, 0.32, 0.31, wrap(items, 80), fs=7.7, lh=0.0245)
@@ -635,11 +647,8 @@ def pad_only(ax, zb=None):
     zb = P.Z_PLATE_BOT if zb is None else zb
     R(ax, -P.PAD_Y, P.PAD_Y, 24.4, zb, RING, ec='none', z=4.2)
     ax.plot([-P.PAD_Y, -P.PAD_Y], [24.2, zb], color=DK, lw=0.8, zorder=4.3); ax.plot([P.PAD_Y, P.PAD_Y], [24.2, zb], color=DK, lw=0.8, zorder=4.3)
-    ax.plot([-P.PAD_Y, P.SCREW_Y[0] - P.INSERT_D / 2], [zb, zb], color=DK, lw=0.8, zorder=4.4)
-    ax.plot([P.SCREW_Y[0] + P.INSERT_D / 2, P.SCREW_Y[1] - P.INSERT_D / 2], [zb, zb], color=DK, lw=0.8, zorder=4.4)
-    ax.plot([P.SCREW_Y[1] + P.INSERT_D / 2, P.PAD_Y], [zb, zb], color=DK, lw=0.8, zorder=4.4)
-    for ys in P.SCREW_Y:
-        R(ax, ys - P.INSERT_D / 2, ys + P.INSERT_D / 2, zb - P.INSERT_DEPTH, zb, 'white', lw=0.7, z=4.5)
+    ax.plot([-P.PAD_Y, P.PAD_Y], [zb, zb], color=DK, lw=0.8, zorder=4.4)
+    pad_bosses(ax, zb)
 
 
 def rear_section(ax, section, title):
@@ -682,11 +691,11 @@ def page_ring_rear():
     note(ax, (11.0, 13.2), 'x = 0 on the bed:\nthe steps face up', fs=6.6, ha='center', color=RED)
     ax.set_title('Side view from +y (side wall, |z| < 17)', fontsize=8.0, color=BLUE, loc='left', fontweight='bold')
     rows = [['Feature', 'Value', 'Read in'],
-            ['bore / outside, width', '\u00d748.5 / \u00d754, 15', 'cylinders R24.25, R27, x 0 \u2192 15'],
+            ['bore / outside, width', '\u00d848.5 / \u00d854, 15', 'cylinders R24.25, R27, x 0 \u2192 15'],
             ['side slot, both sides', 'x 3 \u2192 6, |z| < 4.25', 'planes x = 3, x = 6, z = \u00b14.25'],
             ['side window, both sides', 'x 6 \u2192 15, |z| < 11.3', 'planes x = 6, z = \u00b111.3'],
             ['relief flat on the wood side', 'y = 26, |z| < 7.3, x 0 \u2192 6', 'plane y = 26 (your 45\u00b0 chamfer up to the blade is not kept)'],
-            ['pad, pockets (new)', f'24 wide, top z = {P.Z_PLATE_BOT:.1f}', f'pockets \u00d84.0 \u00d7 {P.INSERT_DEPTH} at y = \u00b18']]
+            ['pad, bosses (new)', f'24 wide, top z = {P.Z_PLATE_BOT:.1f}', f'bosses \u00d8{P.BOSS_D:.0f} \u00d7 {P.BOSS_H:.0f}, pockets \u00d8{P.INSERT_D} \u00d7 {P.INSERT_DEPTH} at y = \u00b18']]
     table(fig, 0.03, 0.385, [0.0, 0.17, 0.36], rows, lh=0.0275, fs=7.3, widths=0.56)
     items = [('h', 'What these steps are'),
              ('b', 'They are the detrompeurs of the drill body: the ring is closed for the first 3 mm, narrows to side slots for 3 mm, then opens into two side windows. The drill cannot be fitted the wrong way round and the windows take its torque.'),
@@ -735,12 +744,12 @@ def page_ring_front():
     a1 = fig.add_axes([0.52, 0.60, 0.20, 0.27]); slot_detail(a1, 4.4, 'narrow slot (45\u00b0, 135\u00b0, 225\u00b0)')
     a2 = fig.add_axes([0.75, 0.60, 0.22, 0.27]); slot_detail(a2, 6.2, 'wide slot (315\u00b0): the key', key=True)
     rows = [['Feature', 'Value', 'Read in'],
-            ['bore / outside, width', '\u00d748 / \u00d754, 12', 'cylinders R24, R27, x 0 \u2192 12'],
+            ['bore / outside, width', '\u00d848 / \u00d854, 12', 'cylinders R24, R27, x 0 \u2192 12'],
             ['slots, flat bottom', '26.0 from the axis', '2.0 beyond the bore, on the diagonals'],
             ['narrow slots (\u00d73)', '4.4 wide, at 45\u00b0, 135\u00b0, 225\u00b0', 'planes at \u00b12.2 from the diagonal'],
             ['wide slot, the key (\u00d71)', '6.2 wide, at 315\u00b0 (bottom right)', 'planes at \u00b13.1 from the diagonal'],
             ['relief flat on the wood side', 'y = 26, |z| < 7.3, full width', 'plane y = 26'],
-            ['pad, pockets (new)', f'24 wide, top z = {P.Z_PLATE_BOT:.1f}', f'pockets \u00d84.0 \u00d7 {P.INSERT_DEPTH} at y = \u00b18']]
+            ['pad, bosses (new)', f'24 wide, top z = {P.Z_PLATE_BOT:.1f}', f'bosses \u00d8{P.BOSS_D:.0f} \u00d7 {P.BOSS_H:.0f}, pockets \u00d8{P.INSERT_D} \u00d7 {P.INSERT_DEPTH} at y = \u00b18']]
     table(fig, 0.52, 0.52, [0.0, 0.135, 0.30], rows, lh=0.0275, fs=7.2, widths=0.46)
     items = [('h', 'Orientation and print'),
              ('b', 'The slots are prismatic along x and the ring is symmetric end to end: either face can go on the bed. 4 walls, no support.'),
@@ -754,9 +763,9 @@ def page_ring_front():
 
 
 
-def page_layout(L=80.0):
+def page_layout(L=B.AXIAL_SPACING):
     fig = plt.figure(figsize=A4)
-    page_title(fig, 'Plank layout \u2014 drilling points for the four plots', 'View from below (plank underside), motor axis x horizontal toward the coupler. The spacing L between the two supports is not known yet (placeholder 80 mm). Dimensions in mm.')
+    page_title(fig, 'Plank layout \u2014 drilling points for the four plots', f'View from below (plank underside), motor axis x horizontal toward the coupler. L = {B.RING_GAP} between the rings (measured) + 7.5 + 6 = {L:.1f}. Dimensions in mm.')
     ax = fig.add_axes([0.02, 0.10, 0.62, 0.78]); ax.set_aspect('equal'); ax.axis('off'); ax.set_xlim(-26, L + 26); ax.set_ylim(-52, 40)
     wood(ax, -24, L + 24, -44.48, 44.48)
     ax.add_patch(Rectangle((-24, 27), L + 48, 7, fc='#e6d5b2', ec=WOOD, lw=0.8, hatch='\\\\\\\\', zorder=2))
@@ -778,7 +787,7 @@ def page_layout(L=80.0):
         dim(ax, (xc + 13, 0), (xc + 13, B.Y_POST_EAR), '37', tp=(xc + 15.3, B.Y_POST_EAR / 2), fs=7.8)
         dim(ax, (xc + 13, 0), (xc + 13, B.Y_POST_WOOD), '19', tp=(xc + 15.3, B.Y_POST_WOOD / 2), fs=7.8)
     dim(ax, (-14, B.PLATE_Y0 - 0.0), (-14, -44.48), '', fs=7) if False else None
-    dim(ax, (0, 38.5), (L, 38.5), 'L = distance between the ring centres (to measure)', tp=(L / 2, 36.6), fs=8, color=RED)
+    dim(ax, (0, 38.5), (L, 38.5), f'L = {L:.1f} between the ring centres', tp=(L / 2, 36.6), fs=8, color=RED)
     ext(ax, (0, 34.5), (0, 39.2)); ext(ax, (L, 34.5), (L, 39.2))
     dim(ax, (-9.5, -44.48), (-9.5, B.Y_POST_EAR), '', fs=7); note(ax, (-10.0, -41.0), '7.5 to the\nplank edge', fs=6.8, ha='right')
     ext(ax, (-9.5, B.Y_POST_EAR), (-1.0, B.Y_POST_EAR))
@@ -787,14 +796,15 @@ def page_layout(L=80.0):
     rows = [['Point', 'x', 'y', 'Drill'],
             ['P1  rear, ear side', '0', '\u221237.0', '\u00d82.0\u20132.2 \u00d7 14'],
             ['P2  rear, wood side', '0', '+19.0', '\u00d82.0\u20132.2 \u00d7 14'],
-            ['P3  front, ear side', 'L', '\u221237.0', '\u00d82.0\u20132.2 \u00d7 14'],
-            ['P4  front, wood side', 'L', '+19.0', '\u00d82.0\u20132.2 \u00d7 14']]
+            ['P3  front, ear side', f'{L:.1f}', '\u221237.0', '\u00d82.0\u20132.2 \u00d7 14'],
+            ['P4  front, wood side', f'{L:.1f}', '+19.0', '\u00d82.0\u20132.2 \u00d7 14']]
     table(fig, 0.66, 0.86, [0.0, 0.135, 0.178, 0.228], rows, lh=0.03, fs=7.4, widths=0.32)
     items = [('s', 'x = 0 on the rear ring centre, y from the motor axis (+ toward the wood). Tolerance of the pitch between P1 and P2: \u00b10.3 (the slots have 0.3 mm play per side).'),
              ('gap', ''),
-             ('h', 'Marking before a jig exists'),
-             ('b', 'Fit the plates on the rings and offer the assembly to the plank, the clip mouths toward the coupler, the slot ends at the plot positions. Mark each plot centre through the closed end of its slot with a \u00d86 punch or a pencil tip: \u00b10.3 mm.'),
-             ('b', 'Or give me L and I generate a printed drilling jig referenced on the vertical wood face and the plank edge.'),
+             ('h', 'Drilling jig (stl/drill_jig.stl, \u2248 3 g)'),
+             ('b', 'A light frame with a guide on each plot and two lips that bear on the vertical wood face. Print it flat, the plank face on the bed, no support; ream each guide once with the drill bit.'),
+             ('b', 'Plates on the rings, coupling fully engaged (motor pushed toward the coupler): mark the two edges of each plate on the vertical wood face. Hold the jig flat on the plank, lips on the wood, lip ends on the marks. Both lips must match the marks: that checks L.'),
+             ('b', 'Depth stop at 14 + 8 (guide) = 22 mm from the tip of the bit.'),
              ('gap', ''),
              ('h', 'Drilling'),
              ('b', 'Pilot \u00d82.0\u20132.2 for a \u00d83 wood screw, 14 mm deep (the screw is 25 mm, the plot is 12.1 mm long, so \u2248 13 mm enters the wood). Check the plank thickness first.'),
@@ -812,8 +822,8 @@ def page_steps():
     from PIL import Image
     fig = plt.figure(figsize=A4)
     page_title(fig, 'Assembly sequence', 'IKEA-style pictures generated from the CAD (docs/img). Plate = orange, ring support = blue, plot = grey, TPU cushion = green, wood = plank.')
-    cells = [('step_1_inserts.png', '1  Press 2 short M3 heat-set inserts into each pad (iron \u2248 230 \u00b0C), flush with the pad face.'),
-             ('step_2_plate_on_ring.png', '2  Screw the plate on the pad: 2 \u00d7 M3 \u00d7 5, mouths toward the coupler (+x). \u2264 0.3 N\u00b7m (10 mm\u00b2 under the head).'),
+    cells = [('step_1_inserts.png', '1  Press 2 M3 \u00d7 4 heat-set inserts into the bosses of each pad (iron \u2248 230 \u00b0C), flush with the boss face.'),
+             ('step_2_plate_on_ring.png', '2  Screw the plate on the pad (the bosses centre it): 2 \u00d7 M3 \u00d7 5, mouths toward the coupler (+x). \u2264 0.3 N\u00b7m.'),
              ('step_3_cushions_on_plots.png', '3  Slide 2 cushions on every plot: one down to the head, one up to the flat top. Friction fit.'),
              ('step_4_plots_in_plank.png', '4  Pilot \u00d82.0\u20132.2 \u00d7 14, then screw the 4 plots (\u00d83 \u00d7 25) with the flat top fully against the plank.'),
              ('step_5_slide_in.png', '5  Slide the motor (rings and plates on) toward the coupler: the four clips click, the slot ends stop it.')]
@@ -838,36 +848,36 @@ def page_steps():
 # ============================================================================ 12  print settings and bill of materials
 def page_bom():
     fig = plt.figure(figsize=A4)
-    page_title(fig, 'Print settings and bill of materials', 'Bambu Lab A1 mini, 0.4 mm nozzle, Bambu Studio. Dry the filaments before printing. Files in stl/ (step/ for CAD).')
+    page_title(fig, 'Print settings and bill of materials', 'Bambu Lab A1 mini, 0.4 mm nozzle, Bambu Studio. Dry the filaments before printing. Files in stl/ (step/ for CAD), the drill hub in solidworks/.')
     fig.text(0.03, 0.865, 'Printed parts', fontsize=9.5, fontweight='bold', color=BLUE)
     rows = [['ID', 'Part', 'Qty', 'Material', 'Orientation', 'Walls / infill', 'File'],
             ['A', 'Clip plate', '2', 'PETG Matte', 'flat, bottom face on the bed', '5 walls, 25 %', 'clip_plates_x2.stl'],
             ['B', 'Plot', '4', 'PETG Matte', 'head on the bed', '4 walls (solid)', 'plots_x4.stl'],
             ['C', 'TPU cushion, wheel (silent block)', '8', 'TPU 85A', 'flat', '2 walls, 3 top/bottom', 'cushions_x8.stl'],
-            ['D', 'Ring support, motor_mount (\u00d748.5 \u00d7 15)', '1', 'PETG', 'ring axis vertical', '4 walls, 25 %', 'ring_support_motor_mount_print.stl'],
-            ['E', 'Ring support, front mount (\u00d748 \u00d7 12)', '1', 'PETG', 'ring axis vertical', '4 walls, 25 %', 'ring_support_front_mount_print.stl'],
-            ['F', 'Coupling hub A (drill side)', '1', 'PETG', 'base on the bed', '4 perimeters', 'hub_a_drill_side.stl'],
+            ['D', 'Ring support, motor_mount (\u00d848.5 \u00d7 15)', '1', 'PETG', 'ring axis vertical', '4 walls, 25 %', 'ring_support_motor_mount_print.stl'],
+            ['E', 'Ring support, front mount (\u00d848 \u00d7 12)', '1', 'PETG', 'ring axis vertical', '4 walls, 25 %', 'ring_support_front_mount_print.stl'],
+            ['F', 'Drill hub (drill adapter V4 + hub A)', '1', 'PETG', 'threaded end on the bed', '4 perimeters', 'DrillAdapter+hub.STL'],
             ['G', 'Coupling hub B (flange side)', '1', 'PETG', 'base on the bed', '4 perimeters', 'hub_b_flange_side.stl'],
             ['H', 'Spider (TPU, coupling)', '1 + 1', 'TPU 85A', 'flat, lobes upright', '100 %, 4 walls', 'spider_tpu.stl'],
+            ['I', 'Drilling jig (tool, page 11)', '1', 'PETG', 'plank face on the bed', 'all walls', 'drill_jig.stl'],
             ['\u2013', 'optional: plate mirrored, solid cushion', '\u2013', 'as A / C', 'as A / C', 'as A / C', 'clip_plate_mirrored.stl, cushion_solid.stl']]
-    table(fig, 0.03, 0.84, [0.0, 0.028, 0.255, 0.292, 0.36, 0.505, 0.62], rows, lh=0.026, fs=7.1, widths=0.94)
-    fig.text(0.03, 0.563, 'Hardware', fontsize=9.5, fontweight='bold', color=BLUE)
+    table(fig, 0.03, 0.84, [0.0, 0.028, 0.255, 0.292, 0.36, 0.505, 0.62], rows, lh=0.025, fs=7.1, widths=0.94)
+    fig.text(0.03, 0.548, 'Hardware', fontsize=9.5, fontweight='bold', color=BLUE)
     rows = [['ID', 'Item', 'Qty', 'Used for'],
             ['1', 'Wood screw \u00d83 \u00d7 25, countersunk head \u00d86', '4', f'plots into the plank, pilot \u00d82.0\u20132.2 \u00d7 14, \u2248 {25 - B.SH_LEN - B.HEAD_H:.0f} mm in the wood'],
-            ['2', 'M3 heat-set insert, short (L \u2264 3.0, pocket \u00d84.0 \u00d7 3.2)', '4', 'ring supports, 2 per pad'],
+            ['2', 'M3 heat-set insert M3 \u00d7 4 \u00d7 \u00d84.2 (pocket \u00d83.8 \u00d7 4.5)', '4', 'ring supports, 2 per pad, in the bosses'],
             ['3', 'M3 \u00d7 5 cap screw, head \u00d85 \u00d7 3', '4', 'plates on the pads (counterbore \u00d85.8 \u00d7 3.2)'],
-            ['4', 'M3 \u00d7 8 cap screw, head \u00d85 \u00d7 3', '4', 'hub A onto drillAdapterV3 (your part)'],
-            ['5', 'M3 heat-set insert (pocket \u00d84.0 \u00d7 4.2)', '4', 'hub B'],
-            ['6', 'M3 \u00d7 6 cap screw, head \u00d85 \u00d7 3', '4', 'flange coupler onto hub B'],
-            ['7', 'Rigid flange coupler, bore 6.35, flange \u00d822, bolt circle \u00d816', '1', 'seller\u2019s part (model in step/flange_coupler_6.35mm.step)']]
-    table(fig, 0.03, 0.538, [0.0, 0.028, 0.37, 0.405], rows, lh=0.026, fs=7.1, widths=0.94)
+            ['4', 'M3 heat-set insert M3 \u00d7 4 \u00d7 \u00d84.2 (pocket \u00d83.8 through)', '4', 'hub B'],
+            ['5', 'M3 \u00d7 6 cap screw, head \u00d85 \u00d7 3', '4', 'flange coupler onto hub B'],
+            ['6', 'Rigid flange coupler, bore 6.35, flange \u00d822, bolt circle \u00d816', '1', 'seller\u2019s part (model in step/flange_coupler_6.35mm.step)']]
+    table(fig, 0.03, 0.523, [0.0, 0.028, 0.37, 0.405], rows, lh=0.026, fs=7.1, widths=0.94)
     fig.text(0.03, 0.31, 'Slicer settings', fontsize=9.5, fontweight='bold', color=BLUE)
     rows = [['Setting', 'PETG Matte (plates, plots, rings, hubs)', 'TPU 85A (cushions, spider)'],
             ['Feeding', 'AMS lite or external spool', 'external spool only, spool raised'],
             ['Drying', 'yes (PETG Matte absorbs moisture)', '70 \u00b0C for 8 h, then dry storage'],
             ['Nozzle / bed', '255 \u00b0C (230\u2013260) / 70 \u00b0C (65\u201375)', '225 \u00b0C (215 if it strings) / 35 \u00b0C, no glue'],
             ['Layer / width / speed', '0.2 / 0.42 mm / standard, fan 30\u201350 %', '0.2 / 0.42 mm / 20 mm/s (15 first layer), fan 100 %'],
-            ['Support', 'none (hubs: only under the \u00d822.2 \u00d7 1 recess)', 'none; retraction 0.8 mm at 25 mm/s; 2 mm\u00b3/s max'],
+            ['Support', 'none (hub B: under its recess; drill hub: under its \u00d833 base)', 'none; retraction 0.8 mm at 25 mm/s; 2 mm\u00b3/s max'],
             ['First print', 'one clip plate: it must click like sample 4', 'one cushion on a plot: firm friction fit']]
     table(fig, 0.03, 0.285, [0.0, 0.13, 0.50], rows, lh=0.026, fs=7.0, widths=0.94)
     footer(fig, 13, TOTAL)
@@ -882,10 +892,10 @@ def page_checks():
     left = [('h', 'Verified in CAD (not printed yet)'),
             ('b', 'Every STL is watertight; the check assembly (2 supports, 4 plots, 8 cushions, plank, wood) has no interference other than the designed 0.1 mm friction fit of the cushions.'),
             ('b', f'Clearances: plate to cushions {B.GAP} (above, below), plate to plots 0.3 (around), head B to ring {B.PLANK_Z - B.SH_LEN - B.HEAD_H - ring_z(14.0, 27.0):.1f}, plate end to wood 0.4, ring to wood 1.0.'),
-            ('b', 'The clip is the sample 4 geometry of the proof of concept, generated from the same constants. The coupling files are those of the previous repository (same volumes).'),
+            ('b', 'The clip is the sample 4 geometry of the proof of concept, generated from the same constants. The coupling files are those of the previous repository (same volumes); the drill hub joins hub A and the drill adapter V4 in SolidWorks.'),
             ('gap', ''),
             ('h', 'Validation plan (in this order)'),
-            ('n', 'T1  Calipers: printed plot \u00d86.0 \u00b1 0.05, slot 6.6, mouth 5.4, cushion ID 5.8 on the shoulder.'),
+            ('n', 'T1  Calipers: printed plot \u00d86.0 \u00b1 0.05, slot 6.6, mouth 5.4, cushion ID 5.8 on the shoulder. Drill hub screwed on the spindle by hand, without play.'),
             ('n', 'T2  On the desk: measure H, the shaft axis to the plank underside (36.0 assumed) and set the cushion thicknesses (page 7).'),
             ('n', 'T3  Bench: one support on two plots at pitch 56; 10 slide-ins; click, unlatching force with a scale along the axis.'),
             ('n', 'T4  On the desk: turn the axis by hand; axis offset \u2264 0.3 mm, tilt \u2264 1\u00b0; run at low PWM and watch the offset under the couple (page 8).'),
@@ -893,17 +903,17 @@ def page_checks():
             ('n', 'T6  Vibration: ADXL345 on the plank and on the ring, with and without the cushions; compare with page 8 and keep the softest cushion that holds.')]
     textblock(fig, 0.03, 0.86, wrap(left, 72), fs=7.5, lh=0.0238)
     right = [('h', 'Open items'),
-             ('b', 'Axial spacing L between the two supports: unknown (placeholder 80). Needed for the plank layout and a drilling jig.'),
+             ('b', f'Axial spacing L = {B.AXIAL_SPACING:.1f} between the ring centres, from the {B.RING_GAP} measured between the rings: check it with the drilling jig before drilling (page 11).'),
              ('b', 'Mouth direction: +x assumed toward the coupler; mirrored plate provided.'),
              ('b', 'Rings: taken from your SLDPRT, all original vertices within 0.002 mm. Open: the direction of the rear ring along x is as in your file (closed rim at x = 0). The key of the front ring is at the bottom right, as in your file.'),
              ('b', 'Plank \u2265 15 mm thick for the \u00d83 \u00d7 25 screws, otherwise \u00d83 \u00d7 20. H (36.0) sets the cushion thicknesses.'),
              ('b', 'Extraction force \u2248 4 \u00d7 53 N \u2248 210 N by calculation: to be measured; sample 3 is the fallback.'),
              ('b', f'Axial float: with clip sample 4 a plot can move about 3.7 mm between the slot end and the lugs. The coupling jaws (7 mm) accept it, but a motor that creeps back loses engagement; the spider\u2019s friction does not hold it. If it matters, move the lug 1.5 mm toward the slot end (a new clip to validate).'),
-             ('b', f'Plate to pad joint: the couple (1.65 N\u00b7m per support) puts \u2248 80 N of tension on one M3 insert (estimate), with only {zb - B.INSERT_DEPTH - ring_z(6.0):.1f} mm of ring wall under a pocket.'),
+             ('b', f'Plate to pad joint: the couple (1.65 N\u00b7m per support) puts \u2248 80 N of tension on one M3 insert (estimate), with only {pocket_wall():.1f} mm of ring wall under a pocket.'),
              ('b', 'Cushion stiffness, damping and the 0.3 mm plays are assumptions: page 8 is an estimate, the ADXL345 decides.'),
              ('gap', ''),
              ('h', 'Assumptions'),
-             ('s', 'Plank underside 36 and wood face 27 from the SolidWorks sketches; plank 15\u201316 mm thick; M3 insert pocket \u00d84.0 \u00d7 3.2 (short inserts); screws \u00d83 \u00d7 25 DIN 7997 type; torque 3.3 N\u00b7m shared by two supports.')]
+             ('s', 'Plank underside 36 and wood face 27 from the SolidWorks sketches; plank 15\u201316 mm thick; M3 \u00d7 4 \u00d7 \u00d84.2 inserts in \u00d83.8 pockets; screws \u00d83 \u00d7 25 DIN 7997 type; torque 3.3 N\u00b7m shared by two supports.')]
     textblock(fig, 0.52, 0.86, wrap(right, 66), fs=7.4, lh=0.0235)
     footer(fig, 18, TOTAL)
     return fig
@@ -912,7 +922,7 @@ def page_checks():
 def build(out):
     import coupling_pages as cp
     seq = [page_summary, page_overview, page_stack, page_plate, page_clip, page_plot, page_cushion, page_paths, page_ring_rear, page_ring_front, page_layout, page_steps, page_bom,
-           cp.page_coupler, cp.page_clip, cp.page_vis, page_integration, page_checks]
+           cp.page_coupler, cp.page_clip, cp.page_drill_hub, page_integration, page_checks]
     assert len(seq) == TOTAL
     with PdfPages(out) as pdf:
         for n, f in enumerate(seq, 1):

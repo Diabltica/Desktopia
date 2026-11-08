@@ -2,6 +2,7 @@
     python make_figures.py          (after build_slide_mount.py)
 """
 import os
+import tempfile
 import numpy as np
 import trimesh
 import cadquery as cq
@@ -22,7 +23,7 @@ def assembly_meshes():
         shp = ch.obj.val() if hasattr(ch.obj, "val") else ch.obj
         if ch.loc is not None:
             shp = shp.moved(ch.loc)
-        tmp = "/tmp/_part.stl"
+        tmp = os.path.join(tempfile.gettempdir(), "_part.stl")
         cq.exporters.export(cq.Workplane("XY").add(shp), tmp, tolerance=0.01, angularTolerance=0.1)
         key = [k for k in COL if ch.name.startswith(k)][0]
         out.append((ch.name, key, trimesh.load(tmp)))

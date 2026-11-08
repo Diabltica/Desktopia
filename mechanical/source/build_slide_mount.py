@@ -5,7 +5,7 @@ wood, z = up. Origin on the motor axis. Plank underside at z = +36, vertical woo
 
 Parts
   clip_plate        flat PETG plate, 2 snap slots (sample 4) + 2 M3 counterbores. Print flat. Two needed (one per support).
-  ring_support_*    ring (+ pad with 2 M3 insert pockets) the plate is screwed on. Print with the ring axis vertical.
+  ring_support_*    ring (+ pad with 2 bosses holding the M3 inserts) the plate is screwed on. Print with the ring axis vertical.
   plot              printed post: shoulder dia 6.0, head dia 10, countersunk bore for a dia 3 wood screw. Four needed.
   cushion           TPU silent block: ring washer 12 x 1.5 on the shoulder, above and below the plate (8 needed, wheel or solid).
   clip_cut_tool     the slot + slits of one clip as a solid / DXF (post centre at the origin), to cut into your own SolidWorks plates.
@@ -43,7 +43,7 @@ CUSH_T = 1.5                           # TPU cushion thickness (free state); one
 CUSH_OD, CUSH_ID = 12.0, 5.8           # ring washer, friction fit on the dia 6.0 shoulder (0.1 per side)
 Z_PLATE_BOT = PLANK_Z - CUSH_T - GAP - PLATE_T          # 28.2 : bearing face of the pad on the ring support
 SH_LEN = PLATE_T + 2 * (GAP + CUSH_T)                   # 9.6 : shoulder length of the plots (plate + 2 cushions + 2 gaps)
-SCREW_Y = (-8.0, 8.0)                  # plate fasteners (M3 x 5, head dia 5 x 3 -> counterbore 5.8 x 3.2, like hub A)
+SCREW_Y = (-8.0, 8.0)                  # plate fasteners (M3 x 5, head dia 5 x 3 -> counterbore 5.8 x 3.2; 3.2 mm in the insert)
 
 # ----------------------------------------------------------------------------- ring supports
 RING_OD = 54.0
@@ -59,13 +59,17 @@ FRONT_SLOT_ANGLES, FRONT_SLOT_NARROW, FRONT_SLOT_WIDE = (45.0, 135.0, 225.0, 315
 # Where the wide slot (the detrompeur) goes: as in your SLDPRT. It is at 225 deg in the file's own frame (bottom left, wood on the left), which is
 # 315 deg in the desk frame: bottom right on the end view seen from the coupler side with the wood on the right. Confirmed by you.
 FRONT_KEY_ANGLE = 315.0
+RING_GAP = 44.5                        # measured on the motor: gap between the two rings, edge to edge
+AXIAL_SPACING = RING_GAP + REAR_W / 2 + FRONT_W / 2     # 58.0 : distance between the ring centres = between the plot rows on the plank
 
 
 def front_slots(key_angle=None):
     """the four slots of the front ring as (angle, width): three narrow and the wide one at key_angle"""
     k = FRONT_KEY_ANGLE if key_angle is None else key_angle
     return tuple((a, FRONT_SLOT_WIDE if abs(a - k) < 1.0 else FRONT_SLOT_NARROW) for a in FRONT_SLOT_ANGLES)
-INSERT_D, INSERT_DEPTH = 4.0, 3.2      # M3 heat-set insert pockets in the pad (short inserts, L <= 3.0; plate screws M3 x 5)
+INSERT_L, INSERT_D, INSERT_DEPTH = 4.0, 3.8, 4.5      # M3 x 4 x OD4.2 heat-set insert (body dia 3.77) and its pocket: a little tight, 0.5 deeper
+BOSS_D, BOSS_H = 8.0, 1.0              # boss on the pad around each insert: the pad alone is too thin above the bore for an L4 insert
+PLATE_RECESS_D, PLATE_RECESS_H = BOSS_D + 0.4, BOSS_H + 0.1      # recess under the plate over each boss (it also centres the plate)
 
 # ----------------------------------------------------------------------------- plot
 HEAD_D, HEAD_H = 10.0, 2.5
@@ -99,13 +103,15 @@ def clip_cut(y0=0.0, xc=XC, z0=-0.5, h=PLATE_T + 1.0):
 
 
 def clip_plate():
-    """plate in print orientation: z = 0 is the face that sits on the pad (bottom, on the bed), x along the motor axis, mouth at x = 15"""
+    """plate in print orientation: z = 0 is the face that sits on the pad (bottom, on the bed), x along the motor axis, mouth at x = 15.
+    Under each screw, a recess takes the boss of the pad."""
     body = cq.Workplane("XY").box(PLATE_W, PLATE_Y1 - PLATE_Y0, PLATE_T, centered=(False, False, False)).translate((0, PLATE_Y0, 0))
     for yp in (Y_POST_EAR, Y_POST_WOOD):
         body = body.cut(clip_cut(yp))
     for ys in SCREW_Y:
         body = body.cut(cq.Workplane("XY").center(XC, ys).circle(1.7).extrude(PLATE_T))
         body = body.cut(cq.Workplane("XY").workplane(offset=PLATE_T - 3.2).center(XC, ys).circle(2.9).extrude(3.2))
+        body = body.cut(cq.Workplane("XY").center(XC, ys).circle(PLATE_RECESS_D / 2).extrude(PLATE_RECESS_H))
     return body
 
 
@@ -158,14 +164,17 @@ def ring_core(kind, key_angle=None):
 
 
 def ring_support(kind="rear", key_angle=None):
-    """ring support in the desk frame, centred on x = 0: original ring + detrompeurs, pad and insert pockets for the plate"""
+    """ring support in the desk frame, centred on x = 0: original ring + detrompeurs, pad with its bosses and insert pockets for the plate"""
     core, w = ring_core(kind, key_angle)
     bore = (REAR_D if kind == "rear" else FRONT_D) / 2
     pad = cq.Workplane("XY").box(w, 2 * PAD_Y, Z_PLATE_BOT - 20.0, centered=(False, True, False)).translate((0, 0, 20.0))
+    for ys in SCREW_Y:
+        pad = pad.union(cq.Workplane("XY").workplane(offset=Z_PLATE_BOT).center(w / 2, ys).circle(BOSS_D / 2).extrude(BOSS_H))
     body = core.union(pad)
     body = body.cut(cq.Workplane("YZ").circle(bore).extrude(w + 2).translate((-1, 0, 0)))
+    z_top = Z_PLATE_BOT + BOSS_H
     for ys in SCREW_Y:
-        body = body.cut(cq.Workplane("XY").workplane(offset=Z_PLATE_BOT - INSERT_DEPTH).center(w / 2, ys).circle(INSERT_D / 2).extrude(INSERT_DEPTH + 0.5))
+        body = body.cut(cq.Workplane("XY").workplane(offset=z_top - INSERT_DEPTH).center(w / 2, ys).circle(INSERT_D / 2).extrude(INSERT_DEPTH + 0.5))
     return body.translate((-w / 2, 0, 0))
 
 
@@ -182,8 +191,8 @@ def export(obj, name):
     print("  ", name)
 
 
-def assembly(axial_spacing=80.0):
-    """check assembly in the desk frame (axial spacing between the two supports is a PLACEHOLDER)"""
+def assembly(axial_spacing=AXIAL_SPACING):
+    """check assembly in the desk frame"""
     asm = cq.Assembly(name="slide_mount_check")
     plank = cq.Workplane("XY").box(axial_spacing + 80, 100, 18, centered=(True, False, False)).translate((axial_spacing / 2, -55, PLANK_Z))
     wood = cq.Workplane("XY").box(axial_spacing + 80, 14, 56, centered=(True, False, False)).translate((axial_spacing / 2, WOOD_Y, -20))

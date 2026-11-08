@@ -10,8 +10,7 @@ tongue 1.5 mm, interference 0.30 mm per side), **plus the two elastic elements t
 ![assembly](docs/assembly_sections.png)
 
 The full report is `docs/slide_mount_assembly_report.pdf` (18 pages, A4 landscape): dimensioned plans, silent blocks, vibration estimate,
-plank layout, assembly pictures, bill of materials, coupling, validation plan and open items. The report predates the drill hub: its pages still
-show hub A screwed onto the drill adapter (4 M3 x 8 and 4 inserts). [BOM.md](BOM.md) is up to date.
+plank layout, assembly pictures, bill of materials, coupling and drill hub, validation plan and open items.
 
 ## Folder layout
 
@@ -29,7 +28,7 @@ show hub A screwed onto the drill adapter (4 M3 x 8 and 4 inserts). [BOM.md](BOM
 coupler, the reused parts and the tools.
 
 In short: 2 clip plates, 4 plots, 2 ring supports, the drill hub and hub B in PETG; 8 cushions and the spider (+1 spare) in TPU 85A;
-8 M3 heat-set inserts, 8 M3 cap screws (x 5, x 6), 4 wood screws dia 3 x 25 and one rigid flange coupler bore 6.35. No washers.
+8 heat-set inserts M3 x 4 x OD4.2, 8 M3 cap screws (x 5, x 6), 4 wood screws dia 3 x 25 and one rigid flange coupler bore 6.35. No washers.
 Check assemblies and the coupler model: `step/assembly_check.step`, `step/assembly_coupler*.step`, `step/flange_coupler_6.35mm.step`.
 
 ## Stack (desk frame: x = motor axis toward the coupler, y toward the vertical wood, z up, origin on the axis)
@@ -61,11 +60,23 @@ The two rings are taken from `motor_mount_1.SLDPRT` and `motor_front_mount_1.SLD
 
 ## Assembly
 
-1. Press the 4 short M3 inserts into the pad pockets. 2. Screw each plate on its pad (2 x M3 x 5, mouths toward the coupler, 0.3 N.m at most).
-3. Slide 2 cushions on the shoulder of every plot: one down to the head, one up to the flat top (friction fit). 4. Drill the plank (pilot dia 2.0-2.2 x 14)
-and screw the 4 plots, flat top fully against the plank. 5. Slide the motor, rings and plates on, toward the coupler: each plot spreads the tongues, the
+1. Press the 4 M3 x 4 inserts into the bosses of the pads, flush. 2. Screw each plate on its pad: its recesses fit on the bosses (2 x M3 x 5,
+mouths toward the coupler, 0.3 N.m at most).
+3. Slide 2 cushions on the shoulder of every plot: one down to the head, one up to the flat top (friction fit). 4. Drill the plank through the drilling
+jig (next section) and screw the 4 plots, flat top fully against the plank. 5. Slide the motor, rings and plates on, toward the coupler: each plot spreads the tongues, the
 clip snaps behind it, the slot end stops the motor and the coupling jaws engage. 6. Turn the axis by hand: no tight spot, axis offset at most 0.3 mm.
-7. To remove the motor, pull it back along its axis. Pictures on page 11 of the report.
+7. To remove the motor, pull it back along its axis. Pictures on page 12 of the report.
+
+## Drilling jig
+
+`stl/drill_jig.stl` puts the four pilot holes at the plot positions: rows 58.0 apart (the rings are 44.5 apart edge to edge, `RING_GAP` in
+`source/build_slide_mount.py`), holes 8 and 64 mm from the vertical wood face. A bare frame, about 3 g of PETG: print it flat, the plank face on
+the bed, no support.
+
+1. Ream each guide once with the dia 2.0-2.2 bit. 2. Plates on the rings, coupling fully engaged (motor pushed toward the coupler): mark the two
+edges of each plate on the vertical wood face. 3. Hold the jig flat on the plank, its two lips against the wood face, the lip ends on the marks (each
+lip is as wide as a plate). Both lips must match their marks: that checks the spacing. 4. Drill through the guides with the depth stop at 22 mm from
+the tip of the bit (8 of guide + 14 in the wood).
 
 ## Silent blocks (TPU cushions)
 
@@ -82,12 +93,12 @@ clip snaps behind it, the slot end stops the motor and the coupling jaws engage.
 
 * `step/clip_sample4_profile.dxf`: outline of one clip, **origin on the plot axis, mouth toward +x**. Open it as a 2D sketch, copy it into a sketch on
   your plate, Cut-Extrude through 6 mm. `step/clip_cut_tool.step` is the same as a solid (Combine > Subtract). Dimensions in
-  `docs/clip_sample4_drawing.png` and on page 16 of the report.
+  `docs/clip_sample4_drawing.png` and on page 17 of the report.
 * Print the plate **flat**: the tongues bend in the plane of the layers (a tongue printed across the layers would crack).
 
 ## Open items
 
-* **Axial spacing L between the two supports is not known** (placeholder 80 mm): no drilling jig yet. Give L and the jig can be generated.
+* Axial spacing: 58.0 between the ring centres, from the 44.5 measured between the rings. The drilling jig checks it against the plates before drilling.
 * Mouth direction (+x assumed toward the coupler), the direction of the rear ring along x (as in your file), the key of the front ring against your drill, plank thickness.
 * **Axial float**: with clip sample 4 a plot can move about 3.7 mm between the slot end and the lugs; the coupling jaws (7 mm) accept it.
 * Extraction force about 4 x 53 N = 210 N by beam theory: measure; sample 3 is the fallback.
@@ -99,6 +110,7 @@ clip snaps behind it, the slot end stops the motor and the coupling jaws engage.
 pip install -r source/requirements.txt
 python source/build_slide_mount.py         # supports, plots, cushions, clip files, check assembly
 python source/coupling/build_coupling.py   # hub B, spider, flange coupler, hub A (STEP only, for the drill hub), check assemblies
+python source/build_drill_jig.py           # drilling jig (rows AXIAL_SPACING apart)
 python source/make_figures.py && python source/steps_images.py
 python source/sldprt_reader/compare_rings.py motor_mount.SLDPRT motor_front_mount.SLDPRT   # check the rings against your files
 python source/report/build_report.py       # the PDF report

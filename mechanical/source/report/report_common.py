@@ -156,6 +156,19 @@ def ring_section(ax, kind='rear', section='window', z0=3.0, lw=0.8, flat=True):
             ax.plot([P.RELIEF_Y, P.RELIEF_Y], [-7.28, 7.28], color=DK, lw=lw, zorder=z0 + 1)
 
 
+def pad_bosses(ax, zb, z0=4.5, inserts=False):
+    """the bosses on the pad top (zb) with their insert pockets, and the inserts if asked: section through the screw axes"""
+    P = B
+    zi = zb + P.BOSS_H
+    for ys in P.SCREW_Y:
+        y0, y1 = ys - P.BOSS_D / 2, ys + P.BOSS_D / 2
+        R(ax, y0, y1, zb - 0.05, zi, RING, ec='none', z=z0)
+        ax.plot([y0, y0, y1, y1], [zb, zi, zi, zb], color=DK, lw=0.8, zorder=z0 + 0.05)
+        R(ax, ys - P.INSERT_D / 2, ys + P.INSERT_D / 2, zi - P.INSERT_DEPTH, zi, 'white', lw=0.7, z=z0 + 0.1)
+        if inserts:
+            R(ax, ys - 2.1, ys + 2.1, zi - P.INSERT_L, zi, BRASS, lw=0.6, z=z0 + 0.2)
+
+
 def endview(ax, kind='rear', section='window', plank_t=16.0, tags=True):
     P = B
     ax.set_aspect('equal'); ax.axis('off')
@@ -163,15 +176,11 @@ def endview(ax, kind='rear', section='window', plank_t=16.0, tags=True):
     wood(ax, -44.48, 44.48, zt, zt + plank_t)
     wood(ax, P.WOOD_Y, P.WOOD_Y + 7, -30, zt)
     ring_section(ax, kind, section)
-    # pad + pockets + inserts + M3 screws
+    # pad, plate with its gaps, bosses + pockets + inserts, M3 screws
     zb = P.Z_PLATE_BOT
     R(ax, -P.PAD_Y, P.PAD_Y, 24.4, zb, RING, ec='none', z=4.2)
     ax.plot([-P.PAD_Y, -P.PAD_Y], [24.2, zb], color=DK, lw=0.8, zorder=4.3)
     ax.plot([P.PAD_Y, P.PAD_Y], [24.2, zb], color=DK, lw=0.8, zorder=4.3)
-    for ys in P.SCREW_Y:
-        R(ax, ys - P.INSERT_D / 2, ys + P.INSERT_D / 2, zb - P.INSERT_DEPTH, zb, 'white', lw=0.7, z=4.5)
-        R(ax, ys - 2.1, ys + 2.1, zb - 3.0, zb, BRASS, lw=0.6, z=4.6)
-    # plate with its gaps
     zp = zb + P.PLATE_T
     R(ax, P.PLATE_Y0, P.PLATE_Y1, zb, zp, ORANGE, z=5)
     for yp in (P.Y_POST_EAR, P.Y_POST_WOOD):
@@ -179,6 +188,9 @@ def endview(ax, kind='rear', section='window', plank_t=16.0, tags=True):
     for ys in P.SCREW_Y:
         R(ax, ys - 2.9, ys + 2.9, zp - 3.2, zp, 'white', z=5.5)
         R(ax, ys - 1.7, ys + 1.7, zb, zp - 3.2, 'white', z=5.5)
+        R(ax, ys - P.PLATE_RECESS_D / 2, ys + P.PLATE_RECESS_D / 2, zb, zb + P.PLATE_RECESS_H, 'white', lw=0.6, z=5.5)
+    pad_bosses(ax, zb, z0=5.6, inserts=True)
+    for ys in P.SCREW_Y:
         R(ax, ys - 2.5, ys + 2.5, zp - 3.2 + 0.2, zp - 0.2, SCREWC, lw=0.6, z=6)
         R(ax, ys - 1.5, ys + 1.5, zp - 3.2 - 5.0, zp - 3.2, SCREWC, lw=0.6, z=6)
     # plots + wood screws

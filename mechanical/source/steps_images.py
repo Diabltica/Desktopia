@@ -7,7 +7,7 @@ from ikea import Step, METAL, WOOD, YOURS, PETG, GHOST, TPU, Z, INK
 import build_slide_mount as B
 
 ORANGE, BRASS = "#f6c27a", "#e0c25a"
-L_SPACING = 80.0                      # placeholder spacing between the two supports
+L_SPACING = B.AXIAL_SPACING           # spacing between the two supports
 
 
 def screw_m3(length=6.0, head_d=5.0, head_h=3.0):
@@ -20,7 +20,7 @@ def wood_screw(length=25):
 
 
 def insert_m3():
-    return cq.Workplane("XY").circle(2.1).circle(1.3).extrude(4.2)
+    return cq.Workplane("XY").circle(2.1).circle(1.3).extrude(4.0)
 
 
 def flip(wp):
@@ -60,7 +60,7 @@ def s1():
         s.guide((0, ys, B.Z_PLATE_BOT + 12), (0, ys, B.Z_PLATE_BOT - 3.0))
     s.arrow((16, 8, B.Z_PLATE_BOT + 22), (16, 8, B.Z_PLATE_BOT + 8))
     s.qty((0, 0, B.Z_PLATE_BOT + 22), 2, dx=-4, dy=14)
-    s.text((0, 22, B.Z_PLATE_BOT), "short heat-set\nM3 inserts", dx=10, dy=-8, fs=8.5, bold=False)
+    s.text((0, 22, B.Z_PLATE_BOT), "M3 x 4 heat-set\ninserts", dx=10, dy=-8, fs=8.5, bold=False)
     s.save("step_1_inserts.png")
 
 

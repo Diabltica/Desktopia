@@ -23,7 +23,7 @@ if __name__ == "__main__":
     export(hub_b(), "hub_b_flange_side")
     export(spider(), "spider_tpu")
     export(flange_coupler(), "flange_coupler_6.35mm", stl=False)
-    asm, A, B, S = coupler_assembly(with_hardware=True)
+    asm, A, B, S = coupler_assembly()
     asm.save(os.path.join(STEP, "assembly_coupler.step"))
     # flange coupler seated in hub B with its 4 M3 x 6 screws and the desk shaft: fit check
     cp = flange_coupler().rotate((0, 0, 0), (1, 0, 0), 180).translate((0, 0, RECESS_H))

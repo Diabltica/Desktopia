@@ -29,17 +29,14 @@ LOBE_RIN = 12.0              # spider lobe inner radius
 SPIDER_H = 8.5               # spider height
 WEB_T = 2.0                  # spider web ring thickness
 WEB_ID = 10.0                # spider web ring bore
-PCD = 16.0                   # bolt circle of drillAdapterV3 and of the flange coupler
-RECESS_D = 22.2              # centering recess (mating parts are Ø22)
+PCD = 16.0                   # bolt circle of the flange coupler
+RECESS_D = 22.2              # centering recess (mating parts are Ø22: the flange coupler, the flange of the drill adapter)
 RECESS_H = 1.0
-INS_D = 4.0                  # heat-set insert pocket (hub B)
-INS_DEPTH = 4.2
-THRU_D = 3.4                 # M3 clearance (hub A)
-CENTER_D = 9.0               # hub B central hole (shaft end)
+INS_D = 3.8                  # pocket of the M3 x 4 x OD4.2 heat-set inserts of hub B (body dia 3.77): a little tight
+INS_DEPTH = BASE - RECESS_H  # through the base: the plastic pushed by the insert can get out on the jaw side
+CENTER_D = 9.0               # central hole: shaft end (hub B), access to the central hole of the drill adapter (hub A)
 HEAD_D = 5.0                 # M3 screw head used here: Ø5 x 3
 HEAD_H = 3.0
-CB_D = 5.8                   # counterbore for the head (hub A)
-CB_DEPTH = 3.2
 
 # --- the spider is a plain PRISM (every wall vertical when it is printed flat): no overhang, no support, no small feature.
 #     It stays on the hubs by a light friction fit: the lobes are slightly wider than the 28 deg gaps between the jaws.
@@ -51,21 +48,19 @@ LEAD_IN = 0.6                # 45 deg chamfer on the two top flank edges of ever
 
 
 def hub(kind):
-    """kind 'A' = drill side (screws into the drillAdapterV3 inserts), 'B' = flange side (heat-set inserts).
-    Both hubs: 3 plain jaws (32 deg, r 12.5 -> 16.5, 7 high) with a 0.6 mm lead-in chamfer on their top flank edges."""
+    """kind 'A' = drill side: the jaw end of the drill hub, merged with the drill adapter in SolidWorks (../../solidworks/DrillAdapter+hub),
+    no screws; 'B' = flange side (heat-set inserts). Both hubs: 3 plain jaws (32 deg, r 12.5 -> 16.5, 7 high) with a 0.6 mm lead-in chamfer
+    on their top flank edges, and a central hole."""
     R = D_OUT / 2
     body = cq.Workplane("XY").circle(R).extrude(BASE)
     centers = [90, 210, 330] if kind == "A" else [30, 150, 270]
     for c in centers:
         body = body.union(sector(CLAW_RIN, R, c - CLAW_ANG / 2, c + CLAW_ANG / 2, BASE, CLAW_H))
     body = body.cut(cq.Workplane("XY").circle(RECESS_D / 2).extrude(RECESS_H))
-    pts = [P(PCD / 2, a) for a in (0, 90, 180, 270)]
-    if kind == "A":
-        body = body.cut(cq.Workplane("XY").pushPoints(pts).circle(THRU_D / 2).extrude(BASE))
-        body = body.cut(cq.Workplane("XY").workplane(offset=BASE - CB_DEPTH).pushPoints(pts).circle(CB_D / 2).extrude(CB_DEPTH))
-    else:
+    if kind == "B":
+        pts = [P(PCD / 2, a) for a in (0, 90, 180, 270)]
         body = body.cut(cq.Workplane("XY").workplane(offset=RECESS_H).pushPoints(pts).circle(INS_D / 2).extrude(INS_DEPTH))
-        body = body.cut(cq.Workplane("XY").circle(CENTER_D / 2).extrude(BASE))
+    body = body.cut(cq.Workplane("XY").circle(CENTER_D / 2).extrude(BASE))
     # lead-in: 45 deg chamfer on the two top flank edges of every jaw (the jaws are plain: nothing to print but vertical walls)
     zt = BASE + CLAW_H
     for c in centers:
@@ -97,7 +92,7 @@ def spider(preload=PRELOAD):
 
 
 # ----------------------------------------------------------------------------- coupling assembly (check model)
-def coupler_assembly(with_hardware=True):
+def coupler_assembly():
     """hub B (bottom) + spider + hub A (flipped, top). Returns (cq.Assembly, A, B, S) in assembled position."""
     A = hub("A").rotate((0, 0, 0), (0, 1, 0), 180).translate((0, 0, BASE * 2 + SPIDER_H))
     B = hub("B")
@@ -106,15 +101,4 @@ def coupler_assembly(with_hardware=True):
     asm.add(B, name="hub_b_flange_side", color=cq.Color(0.55, 0.55, 0.62))
     asm.add(S, name="spider_tpu", color=cq.Color(0.1, 0.7, 0.55))
     asm.add(A, name="hub_a_drill_side", color=cq.Color(0.8, 0.8, 0.8))
-    if with_hardware:
-        pts = [P(PCD / 2, a) for a in (0, 90, 180, 270)]
-        z_floor = BASE + SPIDER_H + CB_DEPTH            # counterbore floor of hub A (assembled frame)
-        head = cq.Workplane("XY").workplane(offset=z_floor - HEAD_H).pushPoints(pts).circle(HEAD_D / 2).extrude(HEAD_H)
-        shank = cq.Workplane("XY").workplane(offset=z_floor).pushPoints(pts).circle(1.49).extrude(8.0)
-        asm.add(head.union(shank), name="screws_M3x8_hub_a", color=cq.Color(0.25, 0.25, 0.25))
-        z_end = BASE * 2 + SPIDER_H - RECESS_H
-        adapter = cq.Workplane("XY").workplane(offset=z_end).circle(11.0).extrude(10.0)
-        adapter = adapter.cut(cq.Workplane("XY").workplane(offset=z_end).pushPoints(pts).circle(2.0).extrude(10.0))
-        adapter = adapter.cut(cq.Workplane("XY").workplane(offset=z_end).circle(4.5).extrude(4.7))
-        asm.add(adapter, name="drill_adapter_excerpt_for_checking_only", color=cq.Color(0.45, 0.55, 0.7))
     return asm, A, B, S

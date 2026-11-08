@@ -1,6 +1,9 @@
 cadquery>=2.4
 ezdxf
 trimesh
+networkx
+shapely
+rtree
 numpy
 matplotlib
 pillow
