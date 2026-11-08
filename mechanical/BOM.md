@@ -39,9 +39,9 @@ Densities assumed: PETG 1.27, TPU 1.2 g/cm3.
 | `stl/clip_plate_mirrored.stl` | print 2 of it **instead of A** only if your coupler is on the other side |
 | `stl/cushion_solid.stl` | stiff cushion, 8 instead of C; sits on a resonance near 1 kHz, keep it as a spare |
 | `stl/cushions_x8.stl` at 2 / 3 / 4 walls | 3 sets of C to find the softest cushion that holds, with the ADXL345 (README, *Silent blocks*) |
-| `stl/clip_plate.stl`, `stl/plot.stl`, `stl/cushion_wheel.stl` | one part alone (A, B, C): to test a single print first |
-| `stl/ring_support_*_desk_frame.stl` | D and E in the desk frame, for CAD only (not in print orientation) |
-| `stl/clip_cut_tool.stl` | cutting tool to put the clip into your own SolidWorks plates, not a part |
+| one part of A, B or C alone | to test a single print first: load the `_x2` / `_x4` / `_x8` file, split it into objects in the slicer and delete the others |
+| `step/ring_support_*_desk_frame.step` | D and E in the desk frame, for CAD only (not in print orientation) |
+| `step/clip_cut_tool.step` | cutting tool to put the clip into your own SolidWorks plates, not a part |
 
 ## 2. Screws and heat-set inserts
 

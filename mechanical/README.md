@@ -17,8 +17,8 @@ plank layout, assembly pictures, bill of materials, coupling and drill hub, vali
 | Folder | Content |
 |---|---|
 | `source/` | CadQuery scripts: every part, figure and the report are generated from them (see [Rebuild](#rebuild)) |
-| `stl/` | generated meshes, ready to slice (`*_x2`, `*_x4`, `*_x8` = the full print plate) |
-| `step/` | generated STEP models, check assemblies and the DXF profile of the clip |
+| `stl/` | generated meshes, only the ones to slice (`*_x2`, `*_x4`, `*_x8` = the full print plate of a part printed several times) |
+| `step/` | generated STEP models of every part (one copy, CAD frame or print orientation), check assemblies and the DXF profile of the clip |
 | `docs/` | generated report (PDF), figures, and the assembly pictures in `docs/img/` |
 | `solidworks/` | the drill hub, made in SolidWorks (not generated): assembly `DrillAdapter+hub.SLDASM` of `drillAdapterV4.SLDPRT` and `hub_a_drill_side.SLDPRT` (imported from `step/hub_a_drill_side.step`), and `DrillAdapter+hub.STL` to print |
 

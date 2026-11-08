@@ -185,9 +185,11 @@ def to_print(shape, axis_up="x"):
     return s.translate((-bb.xmin - (bb.xlen / 2), -bb.ymin - (bb.ylen / 2), -bb.zmin))
 
 
-def export(obj, name):
+def export(obj, name, stl=True):
+    """STEP always; STL only for what gets sliced as is (parts printed several times have their STL in the *_xN print layouts)"""
     cq.exporters.export(obj, os.path.join(STEP, name + ".step"))
-    cq.exporters.export(obj, os.path.join(STL, name + ".stl"), tolerance=0.01, angularTolerance=0.1)
+    if stl:
+        cq.exporters.export(obj, os.path.join(STL, name + ".stl"), tolerance=0.01, angularTolerance=0.1)
     print("  ", name)
 
 
@@ -211,16 +213,16 @@ def assembly(axial_spacing=AXIAL_SPACING):
 if __name__ == "__main__":
     print("slide-in supports, snap lock sample 4")
     plate = clip_plate()
-    export(plate, "clip_plate")
+    export(plate, "clip_plate", stl=False)                              # STL: clip_plates_x2
     export(plate.mirror("YZ", (XC, 0, 0)), "clip_plate_mirrored")      # same plate with the mouths toward -x (if your coupler is on the other side)
     pl = plot()
-    export(pl, "plot")
+    export(pl, "plot", stl=False)                                       # STL: plots_x4
     for nm, kind in (("motor_mount", "rear"), ("front_mount", "front")):
         rs = ring_support(kind)
-        export(rs, "ring_support_" + nm + "_desk_frame")
+        export(rs, "ring_support_" + nm + "_desk_frame", stl=False)    # STEP for CAD; the STL to print is the _print one below
         cq.exporters.export(to_print(rs), os.path.join(STL, f"ring_support_{nm}_print.stl"), tolerance=0.01, angularTolerance=0.1)
     for st in ("wheel", "solid"):
-        export(cushion(st), "cushion_" + st)
+        export(cushion(st), "cushion_" + st, stl=(st == "solid"))      # STL of the wheel cushion: cushions_x8
     cw = cushion("wheel")
     cq.exporters.export(cq.Workplane("XY").add([cw.translate((i * 14.0, j * 14.0, 0)).val() for i in range(4) for j in range(2)]), os.path.join(STL, "cushions_x8.stl"), tolerance=0.01, angularTolerance=0.1)
     # print layouts
@@ -228,7 +230,7 @@ if __name__ == "__main__":
     cq.exporters.export(cq.Workplane("XY").add(plate.val()).add(plate.translate((20.0, 0, 0)).val()), os.path.join(STL, "clip_plates_x2.stl"), tolerance=0.01, angularTolerance=0.1)
     cq.exporters.export(cq.Workplane("XY").add([pl.translate((i * 16.0, j * 16.0, 0)).val() for i in range(2) for j in range(2)]), os.path.join(STL, "plots_x4.stl"), tolerance=0.01, angularTolerance=0.1)
     # clip as a cutting tool, post centre at the origin (for your own SolidWorks plates)
-    export(clip_cut(0.0, 0.0, z0=0.0, h=PLATE_T), "clip_cut_tool")
+    export(clip_cut(0.0, 0.0, z0=0.0, h=PLATE_T), "clip_cut_tool", stl=False)   # a CAD tool, not a part
     wires = [clip_wires(0.0, 0.0).vals()[0]]
     y_in = SLOT_R + T_TONGUE
     x0, x1 = SLIT_X0 - XC, PLATE_W - XC + 1.5
