@@ -74,7 +74,8 @@ J2 pins 7 down to 1.
 The module sits with its pin header towards the buttons (J2 at 90°), turned 180° from the first layout: the firmware
 turns the picture to match (`DISPLAY_ROTATION` 3 in `firmware/desktopia_HMI/include/hmi_config.h`).
 
-Buttons: SW2 Up = GP11, SW3 Down = GP12, SW4-SW6 Preset 1-3 = GP13-GP15.
+Buttons: SW6 Up = GP11, SW5 Down = GP12, SW4 / SW3 / SW2 Preset 1 / 2 / 3 = GP13 / GP14 / GP15. On the PCB (front
+view) they sit from SW2 on the left to SW6 on the right.
 
 ## The cord (J3)
 
