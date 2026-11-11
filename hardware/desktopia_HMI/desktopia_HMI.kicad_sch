@@ -5064,10 +5064,11 @@
 		(stroke
 			(width 0)
 			(type default)
-			(color 132 0 0 1)
+			(color 210 110 20 1)
 		)
 		(fill
-			(type none)
+			(type color)
+			(color 255 150 60 0.15)
 		)
 		(uuid "1890ac00-1f74-465a-b8a4-ded26e1cba89")
 	)
@@ -5077,10 +5078,11 @@
 		(stroke
 			(width 0)
 			(type default)
-			(color 132 0 0 1)
+			(color 190 140 0 1)
 		)
 		(fill
-			(type none)
+			(type color)
+			(color 255 200 60 0.18)
 		)
 		(uuid "4317ae34-924d-4ae4-a333-5b64b0e67e9d")
 	)
@@ -5090,10 +5092,11 @@
 		(stroke
 			(width 0)
 			(type default)
-			(color 132 0 0 1)
+			(color 120 60 190 1)
 		)
 		(fill
-			(type none)
+			(type color)
+			(color 170 120 230 0.15)
 		)
 		(uuid "b634e1d9-60d7-4ee5-ac21-c9113b447ea7")
 	)
@@ -5103,10 +5106,11 @@
 		(stroke
 			(width 0)
 			(type default)
-			(color 132 0 0 1)
+			(color 40 90 200 1)
 		)
 		(fill
-			(type none)
+			(type color)
+			(color 100 150 255 0.13)
 		)
 		(uuid "b84891b0-4d51-4edf-b84f-1ea78860830a")
 	)
@@ -5116,12 +5120,97 @@
 		(stroke
 			(width 0)
 			(type default)
-			(color 132 0 0 1)
+			(color 30 140 60 1)
+		)
+		(fill
+			(type color)
+			(color 90 200 110 0.15)
+		)
+		(uuid "e7733e71-1943-4f76-8bc9-9ed68ef14b7f")
+	)
+	(polyline
+		(pts
+			(xy 16.51 194.945) (xy 24.13 194.945)
+		)
+		(stroke
+			(width 0.15)
+			(type default)
+			(color 150 60 210 1)
 		)
 		(fill
 			(type none)
 		)
-		(uuid "e7733e71-1943-4f76-8bc9-9ed68ef14b7f")
+		(uuid "5953c900-a1a8-4b12-8cf8-694491ac0f6c")
+	)
+	(polyline
+		(pts
+			(xy 16.51 199.39) (xy 24.13 199.39)
+		)
+		(stroke
+			(width 0.15)
+			(type default)
+			(color 220 80 150 1)
+		)
+		(fill
+			(type none)
+		)
+		(uuid "691e2e5b-954d-44fc-a099-de0d1452541f")
+	)
+	(polyline
+		(pts
+			(xy 16.51 203.835) (xy 24.13 203.835)
+		)
+		(stroke
+			(width 0.15)
+			(type default)
+			(color 80 80 80 1)
+		)
+		(fill
+			(type none)
+		)
+		(uuid "77358db1-3c97-4d80-a872-f3e6cdfdffab")
+	)
+	(polyline
+		(pts
+			(xy 16.51 212.725) (xy 24.13 212.725)
+		)
+		(stroke
+			(width 0.15)
+			(type default)
+			(color 0 150 0 1)
+		)
+		(fill
+			(type none)
+		)
+		(uuid "78fbebc5-c492-45e6-986e-5fec91c81beb")
+	)
+	(polyline
+		(pts
+			(xy 16.51 208.28) (xy 24.13 208.28)
+		)
+		(stroke
+			(width 0.15)
+			(type default)
+			(color 0 150 150 1)
+		)
+		(fill
+			(type none)
+		)
+		(uuid "cfb42f2c-f201-45bb-87a8-07e81ac309d2")
+	)
+	(polyline
+		(pts
+			(xy 16.51 190.5) (xy 24.13 190.5)
+		)
+		(stroke
+			(width 0.15)
+			(type default)
+			(color 235 125 0 1)
+		)
+		(fill
+			(type none)
+		)
+		(uuid "f6c307d4-6389-4fa7-a451-b1f8c9a4b83c")
 	)
 	(text "Firmware: firmware/desktopia_HMI/ (PlatformIO, arduino-pico).\nFirst flash: hold BOOT (SW6), plug the USB-C, release -> USB drive, copy firmware.uf2.\nLink protocol: firmware/shared/hmi_link/hmi_protocol.h (250 kbaud, motherboard polls every 10 ms).\nPCB: J1, SW1-SW5, TP2-TP6 keep their footprints; FPC_HMI1 is replaced by J2 (RJ11)."
 		(exclude_from_sim no)
@@ -5140,6 +5229,7 @@
 		(effects
 			(font
 				(size 2.54 2.54)
+				(color 150 100 0 1)
 			)
 			(justify left)
 		)
@@ -5151,6 +5241,7 @@
 		(effects
 			(font
 				(size 2.54 2.54)
+				(color 180 80 0 1)
 			)
 			(justify left)
 		)
@@ -5166,6 +5257,17 @@
 			(justify left top)
 		)
 		(uuid "305a21d5-2687-42c8-b043-2886cdcffc6b")
+	)
+	(text "+5V (from the cord), USB VBUS"
+		(exclude_from_sim no)
+		(at 26.67 189.865 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "39b0ed2a-ab67-4390-89ae-9e12ce969e04")
 	)
 	(text "R1 (DNP): 120R termination, only for cords over ~5 m\n(the 4.7k bias resistors on the motherboard then become 680R)"
 		(exclude_from_sim no)
@@ -5184,6 +5286,7 @@
 		(effects
 			(font
 				(size 2.54 2.54)
+				(color 20 110 40 1)
 			)
 			(justify left)
 		)
@@ -5222,6 +5325,17 @@
 		)
 		(uuid "6f6ab2d5-0c7e-419a-bced-3eb037818902")
 	)
+	(text "+3V3 (XC6206)"
+		(exclude_from_sim no)
+		(at 26.67 194.31 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "7ce012de-7317-4cfd-876e-8fd130711383")
+	)
 	(text "J1: 7 = +5V (VCC)   6 = GND"
 		(exclude_from_sim no)
 		(at 345.44 172.72 0)
@@ -5233,12 +5347,35 @@
 		)
 		(uuid "8f744234-e1b6-435e-90ec-37b276fc15c6")
 	)
+	(text "Buses: USB, RS-485 and its UART, QSPI flash, screen SPI"
+		(exclude_from_sim no)
+		(at 26.67 207.645 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "9098fbc7-2c25-479b-86e7-31681fd83271")
+	)
+	(text "Other signals (KiCad default)"
+		(exclude_from_sim no)
+		(at 26.67 212.09 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "96ff9fdd-6a20-49ab-ad1d-6864abc3d8cb")
+	)
 	(text "Link to the motherboard: RS-485 over an RJ11 cord"
 		(exclude_from_sim no)
 		(at 261.62 24.13 0)
 		(effects
 			(font
 				(size 2.54 2.54)
+				(color 100 40 160 1)
 			)
 			(justify left)
 		)
@@ -5255,6 +5392,18 @@
 		)
 		(uuid "a9c2d9ce-eb36-4f57-b0af-03830931524b")
 	)
+	(text "Wire colours (net classes, see the project settings)"
+		(exclude_from_sim no)
+		(at 16.51 185.42 0)
+		(effects
+			(font
+				(size 1.5 1.5)
+				(bold yes)
+			)
+			(justify left)
+		)
+		(uuid "ab92bc3c-fa5d-49f2-8bf6-a1d74ec9e497")
+	)
 	(text "Cord: 6 conductors (6P6C), straight or reversed.\n1 = +5V   2 = GND   3 = A   4 = B   5 = GND   6 = +5V\nSymmetric: a reversed telephone cord cannot swap +5V and GND,\nit only swaps A and B - the firmware detects it and inverts\nthe UART pads (gpio_set_inover / outover).\nJ2: the cord is soldered to the board (no jack: the board sits at 45 deg\nunder the desk edge, the cord leaves flat along the desk). Keep the\nflat order, either direction works. Cable tie through the two slots."
 		(exclude_from_sim no)
 		(at 330.2 29.21 0)
@@ -5266,12 +5415,35 @@
 		)
 		(uuid "bde823af-9805-4bd7-8717-3016528d5016")
 	)
+	(text "+1V1 (RP2040 core)"
+		(exclude_from_sim no)
+		(at 26.67 198.755 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "c94db1ef-06c2-4ebd-98e8-774e6a8fda00")
+	)
+	(text "GND"
+		(exclude_from_sim no)
+		(at 26.67 203.2 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "deddd955-a9e5-4136-915d-3fb6494f3f91")
+	)
 	(text "RP2040 + 2 MB QSPI flash"
 		(exclude_from_sim no)
 		(at 132.08 24.13 0)
 		(effects
 			(font
 				(size 2.54 2.54)
+				(color 30 70 180 1)
 			)
 			(justify left)
 		)

@@ -1,0 +1,116 @@
+(version 1)
+# Desktopia HMI board: custom DRC rules (KiCad 10). Generated with the net classes, see hardware/desktopia_HMI/README.md,
+# "PCB rules". Board: 2 layers, FR-4 1.6 mm, 1 oz (35 um) outer copper, HASL, green solder mask, tented vias: JLCPCB.
+#
+# Where each value lives:
+# - Board Setup > Constraints: JLCPCB's absolute minimums (0.10 mm track and gap, 0.45 mm / 0.2 mm via, 0.2 mm hole
+#   to hole and hole to copper, 0.3 mm copper to edge, 0.1 mm solder mask web, 1 mm / 0.15 mm silkscreen text).
+# - Board Setup > Net Classes: the routing values of each class (track width, clearance, via, differential pair).
+# - This file: what the net classes cannot say (minimum width and via size per class, holes, exceptions).
+# A clearance rule here overrides the net class clearance for the items it matches, so the only clearance rules are
+# the two exceptions at the end.
+#
+# Sources: JLCPCB PCB capabilities, https://jlcpcb.com/capabilities/pcb-capabilities (read November 2026);
+# IPC-2221B table 6-1 (conductor spacing) and section 6.2 (current capacity).
+
+### Manufacturing (JLCPCB, 2 layers, 1 oz)
+
+(rule "Track width, any net (JLCPCB 0.10 mm, kept at 0.15 mm)"
+	(condition "A.Type == 'Track'")
+	(constraint track_width (min 0.15mm))
+)
+
+# Vias: 0.3 mm hole / 0.6 mm pad at least. JLCPCB makes 0.15 mm holes, but charges extra under 0.2 mm, and
+# for 0.2-0.25 mm holes in pads under 0.45 mm; it asks for a pad 0.1 mm (0.15 mm preferred) over the hole.
+
+(rule "Via size (no extra cost, 0.15 mm ring)"
+	(condition "A.Type == 'Via'")
+	(constraint via_diameter (min 0.6mm))
+	(constraint hole_size (min 0.3mm))
+	(constraint annular_width (min 0.15mm))
+)
+
+(rule "Hole size (JLCPCB drills 0.2 to 6.3 mm)"
+	(constraint hole_size (min 0.2mm) (max 6.3mm))
+)
+
+(rule "NPTH hole (JLCPCB 0.5 mm minimum)"
+	(condition "!A.isPlated()")
+	(constraint hole_size (min 0.5mm))
+)
+
+# PTH pads: annular ring 0.18 mm minimum, 0.25 mm recommended. The 0.2 mm thermal vias in the exposed pads
+# of footprints are vias for JLCPCB (0.1 mm over the hole) and are left out.
+
+(rule "PTH pad annular ring (JLCPCB 0.18 mm)"
+	(condition "A.Type == 'Pad' && A.isPlated() && A.Hole_Size_X > 0.3mm")
+	(constraint annular_width (min 0.18mm))
+)
+
+# Holes of one footprint (the via ring of a mounting hole) keep the 0.2 mm of Board Setup (JLCPCB via holes).
+
+(rule "Hole to hole, pads (JLCPCB 0.45 mm)"
+	(condition "A.Type == 'Pad' && B.Type == 'Pad' && A.Parent != B.Parent")
+	(constraint hole_to_hole (min 0.45mm))
+)
+
+(rule "PTH hole to track (JLCPCB 0.28 mm, 0.35 mm recommended)"
+	(condition "A.Type == 'Pad' && A.isPlated() && B.Type == 'Track' && A.Net != B.Net")
+	(constraint hole_clearance (min 0.35mm))
+)
+
+(rule "Silkscreen text (JLCPCB 1 mm, 0.15 mm stroke)"
+	(layer "?.Silkscreen")
+	(condition "A.Type == 'Text' || A.Type == 'Text Box'")
+	(constraint text_height (min 1mm))
+	(constraint text_thickness (min 0.15mm))
+)
+
+(rule "Pad to silkscreen (JLCPCB 0.15 mm)"
+	(layer outer)
+	(condition "A.Type == 'Pad' && B.Layer == '?.Silkscreen'")
+	(constraint silk_clearance (min 0.15mm))
+)
+
+
+### Net classes: minimum track width and via size (the routing width is the net class value)
+
+(rule "Power_5V: track >= 0.2 mm (routing width 0.4 mm)"
+	(condition "A.Type == 'Track' && A.hasNetclass('Power_5V')")
+	(constraint track_width (min 0.2mm))
+)
+
+(rule "Power_3V3: track >= 0.2 mm (routing width 0.3 mm)"
+	(condition "A.Type == 'Track' && A.hasNetclass('Power_3V3')")
+	(constraint track_width (min 0.2mm))
+)
+
+(rule "Power_1V1: track >= 0.2 mm (routing width 0.3 mm)"
+	(condition "A.Type == 'Track' && A.hasNetclass('Power_1V1')")
+	(constraint track_width (min 0.2mm))
+)
+
+(rule "GND: track >= 0.2 mm (routing width 0.4 mm)"
+	(condition "A.Type == 'Track' && A.hasNetclass('GND')")
+	(constraint track_width (min 0.2mm))
+)
+
+
+### Clearance exceptions
+# Pads of one footprint keep the maker's land pattern (JLCPCB: 0.15 mm between SMD pads): the GND pads of the USB-C
+# receptacle sit 0.19 mm from its own locating holes.
+
+(rule "Pads of one footprint"
+	(condition "A.Type == 'Pad' && B.Type == 'Pad' && A.Parent == B.Parent")
+	(constraint clearance (min 0.15mm))
+	(constraint hole_clearance (min 0.15mm))
+)
+
+# Tracks leaving fine-pitch pins (U3 RP2040, 0.4 mm pitch; J1 USB-C, 0.5 mm): a 0.2 mm track into a 0.2 mm RP2040 pad
+# passes 0.2 mm from the next pad, and a wider track needs a neck. The track is under solder mask (IPC-2221B B4: 0.05 mm
+# up to 15 V); JLCPCB: 0.1 mm.
+
+(rule "Escape from fine-pitch pins"
+	(condition "A.Type == 'Track' && (A.intersectsCourtyard('U3') || A.intersectsCourtyard('J1'))")
+	(constraint clearance (min 0.15mm))
+)

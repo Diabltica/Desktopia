@@ -24,6 +24,10 @@ Reading the schematic: every connection is a wire, with no labels. The parts sit
 the flash, crystal, USB, RUN and SWD on its left; the RS-485 transceiver, the buttons and the screen connector on its
 right. Wires that cross without a dot are not connected: GPIO0 (to DI) over GPIO1 / GPIO2, and the screen CS (GPIO17)
 over SCK / MOSI / DC, because the connector pin order differs from the GPIO order.
+Each block has its own background and title colour (power and USB, RP2040 and flash, RS-485 link, buttons, screen).
+Wires take the colour of their net class, as on the motherboard, with a legend at the bottom left of the sheet:
+orange +5V, purple +3V3, pink +1V1, grey GND, teal the buses (USB, RS-485 and its UART, QSPI, screen SPI), green the
+rest. See *PCB rules*.
 
 **Schematic**
 
@@ -129,9 +133,60 @@ Every assembled part has its LCSC number in the `LCSC` and `jlcpcb PartNumber` f
 - 3D model of J1: the LCSC one (`kicad_library/pcb/JLCImport.3dshapes`), as on the motherboard. R8 has its model but
   is marked DNP, so the 3D view hides it.
 
+## PCB rules
+
+The method and the sources are the motherboard's (see *PCB rules* in its [README](../desktopia/README.md)): 2 layers,
+FR-4 1.6 mm, 1 oz (35 µm) copper, made by JLCPCB, track currents from IPC-2221 at ΔT 10 °C. Every net here is at 5 V
+or less, so one clearance fits all: 0.2 mm (IPC-2221B, uncoated pads up to 15 V: 0.13 mm; JLCPCB: 0.10 mm).
+
+- *Board Setup → Constraints*: JLCPCB's absolute minimums, the same as on the motherboard (0.10 mm track and gap; via
+  0.45 mm with a 0.2 mm hole; 0.2 mm hole to hole and hole to copper; 0.3 mm to the board edge; 0.1 mm solder mask web;
+  1 mm / 0.15 mm silkscreen text).
+- *Board Setup → Net Classes*: routing width, clearance and via of each class (below), also in the toolbar lists.
+- [`desktopia_HMI.kicad_dru`](desktopia_HMI.kicad_dru) (*Board Setup → Custom Rules*): the DRC minimum width of each
+  class, JLCPCB's hole and silkscreen rules, and the exceptions.
+
+| Class | Nets | Track: routing / DRC min | Clearance | Via: pad / hole | A track carries |
+|---|---|---|---|---|---|
+| `Default` | crystal, SWD, RUN, buttons, BOOT, CC | 0.2 / 0.15 mm | 0.2 mm | 0.6 / 0.3 mm | 0.7 A |
+| `Buses` | USB D+ / D-, RS-485 A / B and its UART, QSPI, screen SPI | 0.2 / 0.15 mm, pairs 0.2 mm with a 0.2 mm gap | 0.2 mm | 0.6 / 0.3 mm | 0.7 A |
+| `Power_1V1` | +1V1 (RP2040 core) | 0.3 / 0.2 mm | 0.2 mm | 0.6 / 0.3 mm | 1.0 A |
+| `Power_3V3` | +3V3 (XC6206, 0.2 A at most) | 0.3 / 0.2 mm | 0.2 mm | 0.6 / 0.3 mm | 1.0 A |
+| `GND` | GND (pour on both layers) | 0.4 / 0.2 mm | 0.2 mm | 0.6 / 0.3 mm | 1.2 A |
+| `Power_5V` | +5V, USB VBUS (0.5 A at most: the motherboard's PTC) | 0.4 / 0.2 mm | 0.2 mm | 0.6 / 0.3 mm | 1.2 A |
+
+- A 0.6 / 0.3 mm via carries 0.7 A (ΔT 10 °C, 18 µm of hole plating): one is enough for every rail of this board.
+- The RP2040 sets the 0.2 mm width: its 0.4 mm pitch pads are 0.2 mm wide and 0.2 mm apart, so a 0.2 mm track enters a
+  pad 0.2 mm from the next one. The power tracks neck down to 0.2 mm (their DRC minimum) at its pins.
+- Exceptions:
+  - Pads of one footprint keep the maker's land pattern, at 0.15 mm at least: the USB-C GND pads sit 0.19 mm from the
+    connector's locating holes.
+  - Tracks inside the courtyard of U3 or J1 may pass 0.15 mm from other copper.
+  - Holes of one footprint keep the 0.2 mm via spacing: the via ring of the M2 mounting holes is 0.35 mm apart.
+- The other JLCPCB rules are the motherboard's: vias at least 0.6 / 0.3 mm, holes 0.2 to 6.3 mm, NPTH 0.5 mm at least,
+  PTH annular ring 0.18 mm, pad holes of two footprints 0.45 mm apart, PTH hole to track 0.35 mm, silkscreen 0.15 mm
+  from pads.
+
 ## PCB: what to do before ordering
 
-The PCB matches the schematic, references included (the schematic was re-annotated). The routing is not finished.
+The PCB is routed (no unconnected item), and the routing passes the net class rules. The DRC of November 11, 2026
+still finds:
+
+- **TP1-TP9 are missing from the PCB.** They are in the schematic, but it changed after the last PCB update. So the
+  board has no SWD (TP1 / TP3 / TP4, see *Flashing*), RUN or screen test points. Run *Update PCB from Schematic*,
+  then place and route them.
+- **7 thermal reliefs with one spoke instead of two** (errors), all on B.Cu: pad 2 of C5, C16 and C18, and the four
+  GND pads of J1. Add a track or a via to the pour, or give these pads a solid connection.
+- **5 GND vias stacked at (84.2, 83.8) mm**: keep one.
+- **The silkscreen labels of J3** (+5V, GND, A, B) are 0.6 mm high, under JLCPCB's 1 mm / 0.15 mm, and may not print.
+  They come from the footprint ([`cable_6p6c_fp.py`](../kicad_library/pcb/tools/cable_6p6c_fp.py)).
+- Warnings only:
+  - silkscreen closer than 0.15 mm to pads (171): JLCPCB trims silkscreen off pads;
+  - silkscreen over copper (65);
+  - the H1 / H2 references and the J2 outline clipped by the board edge (4);
+  - the NPTH holes of the PG1350 sockets drawn twice in their footprint (5).
+
+For the layout:
 
 - Place J3 against the edge that faces the desk, with its dashed *board edge* line on the outline, so the cord leaves
   straight over the edge. Keep the area between the pads and the edge free of parts (cable tie, wires).
