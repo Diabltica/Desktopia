@@ -7,8 +7,6 @@ A DC motor replaces the crank handle. Two boards control it: the **motherboard**
 on the front edge with a round screen and five buttons. A time-of-flight sensor measures the desk height, so the desk can
 go back to three saved heights at the press of a button.
 
-![Desktopia architecture](./documentation/global-architecture.svg)
-
 ## How it works
 
 ```mermaid
@@ -56,7 +54,7 @@ flowchart LR
 | [firmware/shared/hmi_link/](firmware/shared/hmi_link/) | link protocol and screen model, compiled into both firmwares | [hmi_protocol.h](firmware/shared/hmi_link/hmi_protocol.h) |
 | [firmware/sim/](firmware/sim/) | PC simulation of both boards from their real sources (Linux / WSL) | [README](firmware/README.md#simulation-bench-optional) |
 | [mechanical/](mechanical/) | 3D-printed motor supports with silent blocks and jaw coupling (CadQuery scripts, STL / STEP, assembly report) | [README](mechanical/README.md) |
-| [documentation/](documentation/) | architecture drawing, VL53L1X datasheet | |
+| [documentation/](documentation/) | VL53L1X datasheet | |
 
 ## Getting started
 
