@@ -11,6 +11,17 @@ constexpr uint16_t kIntermeasurementMs = TOF_TIMING_BUDGET_MS + 4;
 constexpr uint32_t kBootTimeoutMs = 100;       // the chip boots in ~1.2 ms; keeps begin() well below the watchdog period
 }  // namespace
 
+bool Vl53l1Driver::setPads2v8() {
+  const uint16_t kPadRegs[] = {0x002E, 0x002F};   // PAD_I2C_HV__EXTSUP_CONFIG, GPIO_HV_PAD__CTRL
+  for (uint16_t reg : kPadRegs) {
+    uint8_t v = 0;
+    if (VL53L1X_RdByte(Device, reg, &v) != 0) return false;
+    if (VL53L1X_WrByte(Device, reg, (uint8_t)(v | 0x01)) != 0) return false;
+    if (VL53L1X_RdByte(Device, reg, &v) != 0 || !(v & 0x01)) return false;
+  }
+  return true;
+}
+
 TofSensor::TofSensor() : _sensor(&Wire, -1) {}   // XSHUT is pulled up on the board, not wired to the MCU
 
 bool TofSensor::ping() {
@@ -43,6 +54,7 @@ bool TofSensor::begin() {
   if (!ping()) return false;
   _sensor.VL53L1X_SensorInit();                   // loads the default config, runs one calibration ranging
   if (!ping()) return false;
+  if (!_sensor.setPads2v8()) return false;        // the default config left the pads in 1V8 mode
   if (_sensor.VL53L1X_GetSensorId(&_sensorId) != 0 || _sensorId == 0x0000 || _sensorId == 0xFFFF) return false;
   DBG(F("ToF id 0x"));
   DBGLN(_sensorId, HEX);

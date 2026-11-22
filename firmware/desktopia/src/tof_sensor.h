@@ -3,6 +3,15 @@
 #include <vl53l1x_class.h>      // STM32duino VL53L1X (ST ultra-lite driver port)
 #include "config.h"
 
+// ST's driver keeps its register access protected; this adds the one setting it lacks.
+class Vl53l1Driver : public VL53L1X {
+ public:
+  using VL53L1X::VL53L1X;
+  // I2C and GPIO1 pads in 2V8 mode: bit 0 of 0x2E (I2C) and 0x2F (GPIO1), for pull-ups to AVDD (2.8 V) instead of
+  // 1.8 V (DS12385, table 13). VL53L1X_SensorInit() writes 0 there: call this after it. True once read back set.
+  bool setPads2v8();
+};
+
 // Desk height from the VL53L1CB time-of-flight sensor, through ST's own driver.
 //
 // The ST driver retries a failed I2C read forever. Every group of driver calls is therefore
@@ -26,7 +35,7 @@ class TofSensor {
   void onCommFailure(uint32_t nowMs);
   void pushSample(uint16_t distanceMm);
 
-  VL53L1X _sensor;
+  Vl53l1Driver _sensor;
   bool _online = false;
   bool _reinitAllowed = true;
   bool _everValid = false;

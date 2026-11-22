@@ -242,6 +242,9 @@ the high level has about 1 V of margin over the RP2040 (V<sub>IH</sub> 2.0 V) an
 specification (ST suggests 3.6k up to 90 pF). The RP2040's own pull-ups (50 to 80 kΩ, enabled by the Wire library)
 stay on, in parallel with R1 / R5.
 
+The firmware puts the sensor's I2C and GPIO1 pads in 2V8 mode (bit 0 of registers 0x2E / 0x2F, DS12385 table 13),
+which matches the 2.8 V pull-ups R2 / R6 / R11: ST's driver leaves them in 1V8 mode.
+
 Q3 is the same circuit on the VL53L1CB GPIO1 (data-ready interrupt, R11 10k pull-up to 2.8 V). It gives `TOF_INT` on
 GP6, with R10 10k pull-up to +3V3. The firmware polls the sensor over I2C and does not use `TOF_INT` yet. Any RP2040
 GPIO takes an interrupt (`attachInterrupt()`).
@@ -475,10 +478,11 @@ them, delete or reroute them. For the layout:
    then set the limit at about 1.5 × the peak.
 5. The 5 V loop compensation (C4 / R9 / C12 / C11) is calculated, not measured. On the first board, check the 5 V
    ripple and a load step, for example 0.1 → 0.6 A.
-6. **VL53L1CB I/O mode.** The ST driver (STM32duino VL53L1X 2.0.1) writes 0 to registers 0x2E / 0x2F, which selects the
-   1V8 I/O mode. This board pulls SCL / SDA / GPIO1 up to AVDD (2.8 V), and for that the datasheet (DS12385, table 13)
-   asks for the 2V8 mode: set bit 0 of 0x2E (I2C) and 0x2F (GPIO1) after `VL53L1X_SensorInit()`. The original design
-   had the same mismatch.
+6. **VL53L1CB I/O mode (fixed in the firmware).** The ST driver (STM32duino VL53L1X 2.0.1) writes 0 to registers
+   0x2E / 0x2F, which selects the 1V8 I/O mode. This board pulls SCL / SDA / GPIO1 up to AVDD (2.8 V), and for that the
+   datasheet (DS12385, table 13) asks for the 2V8 mode. `TofSensor::begin()` now sets bit 0 of 0x2E (I2C) and 0x2F
+   (GPIO1) after `VL53L1X_SensorInit()` and reads them back (no ranging without it). The original design had the same
+   mismatch.
 7. **On-board H-bridge (schematic only, not built, not tested).** The firmware still targets the MD10C: it does not
    drive `nSLEEP` (GP10), so the bridge stays asleep, does not read `nFAULT` (GP11), and refuses a PWM above 20 kHz
    (`static_assert` in `motor.cpp`). To do: `nSLEEP` high after `MOTOR_SW` and 1 ms before the first PWM, low before

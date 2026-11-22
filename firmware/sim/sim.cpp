@@ -401,6 +401,7 @@ struct SimTof {
   bool ready = false;
   uint16_t distance = 0;
   uint8_t status = 0;
+  uint8_t padI2c = 0, padGpio = 0;                 // 0x2E / 0x2F: bit 0 set = 2V8 I/O mode
   unsigned violations = 0, calls = 0;
 } g_tof;
 int8_t simTofCall(const char* what) {
@@ -412,6 +413,17 @@ void simTofReady(uint8_t* r) { *r = g_tof.ready ? 1 : 0; }
 void simTofStatus(uint8_t* s) { *s = g_tof.status; }
 void simTofDistance(uint16_t* d) { *d = g_tof.distance; }
 void simTofClear() { g_tof.ready = false; }
+int8_t simTofRdByte(uint16_t index, uint8_t* data) {
+  if (index == 0x2E) *data = g_tof.padI2c;
+  else if (index == 0x2F) *data = g_tof.padGpio;
+  else *data = 0;
+  return 0;
+}
+int8_t simTofWrByte(uint16_t index, uint8_t data) {
+  if (index == 0x2E) g_tof.padI2c = data;
+  else if (index == 0x2F) g_tof.padGpio = data;
+  return 0;
+}
 
 // ------------------------------------------------------------------------------------------------
 //  Physical world: desk + sensor + buttons
@@ -705,6 +717,8 @@ static void testBoot() {
   check(polls >= 1000 / HMI_POLL_PERIOD_MS - 2 && replies == polls, "1 s of link: %u polls, %u answers", polls, replies);
   check(r.ctrl.ui().screen == UiModel::Screen::Main, "idle screen is %s", screenName(r.ctrl.ui().screen));
   check(r.ctrl.ui().heightValid, "height not valid");
+  check((g_tof.padI2c & 1) && (g_tof.padGpio & 1), "VL53L1CB pads not in 2V8 mode (0x2E = 0x%02X, 0x2F = 0x%02X)",
+        g_tof.padI2c, g_tof.padGpio);
   check(std::fabs(r.ctrl.ui().heightMm - r.w.h) < 6.0, "displayed height %d vs true %.1f", r.ctrl.ui().heightMm, r.w.h);
   check(r.w.duty() == 0.0 && r.w.pwmStuckHigh == 0, "motor should be idle at boot");
   check(r.lcd.coverage() > 0.999, "only %.1f %% of the panel drawn", 100 * r.lcd.coverage());

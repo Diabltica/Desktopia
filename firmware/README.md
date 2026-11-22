@@ -138,8 +138,9 @@ Motherboard (`hardware/desktopia/desktopia.kicad_sch`):
 
 Free: GP0-GP3, GP13-GP16, GP19-GP27, GP29. Any GPIO takes an interrupt (`attachInterrupt()`).
 I2C: VL53L1CB at `0x29` (`0x52` in 8-bit notation) behind the BSS138 level shifters Q1 / Q2 (2.8 V side, pull-ups to
-its AVDD); INA226 current monitor U6 at `0x40` (A0 = A1 = GND) on the 3.3 V side, pull-ups R1 / R5 to +3V3. The
-INA226 measures the motor supply across the 2 mΩ shunt R23 (±41 A full scale,
+its AVDD); INA226 current monitor U6 at `0x40` (A0 = A1 = GND) on the 3.3 V side, pull-ups R1 / R5 to +3V3. After
+the ST init, the firmware puts the sensor's I2C and GPIO1 pads in 2V8 mode (bit 0 of 0x2E / 0x2F) and reads them
+back. The INA226 measures the motor supply across the 2 mΩ shunt R23 (±41 A full scale,
 1.25 mA/bit with a calibration of 2048). The firmware programs its alert threshold and checks its settings every second.
 The 5 V sent to the HMI board goes through the PTC F1 (500 mA). R14 / R17 (4.7 kΩ) bias the bus when nobody drives
 it; R16 (120 Ω termination) is not fitted (only for cords over ~5 m; then R14 / R17 = 680 Ω).
@@ -321,7 +322,7 @@ In the **motor** wire it is the average motor current. In the **supply** wire it
 
 The boards have their own READMEs: [motherboard](../hardware/desktopia/README.md) and
 [HMI board](../hardware/desktopia_HMI/README.md). They cover the blocks, the connectors, the JLCPCB parts, the PCB work
-still to do and the known issues (TPS5430 ENA, 5 V loop to measure, VL53L1CB I/O mode).
+still to do and the known issues (TPS5430 ENA, 5 V loop to measure).
 
 ## Assumptions to confirm
 
@@ -336,11 +337,12 @@ still to do and the known issues (TPS5430 ENA, 5 V loop to measure, VL53L1CB I/O
 - **Motherboard build** with PlatformIO (platform-raspberrypi, arduino-pico core), all environments, `-Wall -Wextra`
   with no warnings.
 - **HMI board build** with PlatformIO (platform-raspberrypi, arduino-pico core), `-Wall -Wextra` with no warnings.
-- **PC simulation** (`sim/run.sh`, 922 checks passed) of the real sources of **both** boards against a simulated desk,
+- **PC simulation** (`sim/run.sh`, 923 checks passed) of the real sources of **both** boards against a simulated desk,
   mocks of the RP2040 SDK (GPIO override, PWM slice, repeating timer, watchdog),
   a noisy ToF (outliers and invalid values included), an INA226 with its alert line on GP7, the switched driver
   supply, a simulated RS-485 bus and cord, buttons with bounce and an emulated GC9A01 screen. Covered: PWM ramps and ceiling, DIR direction, presets (short / long press, EEPROM, gauge), recall accuracy
-  (standard deviation ≈ 2.3 mm with 1-3 mm sensor noise), end stops, faults, `millis()` rollover, screen rendering.
+  (standard deviation ≈ 2.3 mm with 1-3 mm sensor noise), end stops, faults, `millis()` rollover, screen rendering,
+  VL53L1CB pads in 2V8 mode after the init.
   Screen: every pixel-art state read back from the emulated panel (ring colour, chevrons, preset pills and marks,
   floppy and gauge, SAVED, flag and travel left, arrival "ding", Zz), arrival overlay length, "already there" press.
   Link scenarios: frame codec (every single-bit error caught), cord pulled out while moving (motor cut after 36 ms), cord back
