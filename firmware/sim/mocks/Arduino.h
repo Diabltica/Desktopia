@@ -1,5 +1,5 @@
 #pragma once
-// Minimal host-side stand-in for the Arduino AVR core (simulation only)
+// Minimal host-side stand-in for the Arduino cores (arduino-pico on both boards; simulation only)
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <math.h>
 #include "avr/pgmspace.h"
-#include "avr/io.h"
 
 #define HIGH 1
 #define LOW 0
@@ -28,12 +27,12 @@ void pinMode(uint8_t pin, uint8_t mode);
 void digitalWrite(uint8_t pin, uint8_t level);
 int digitalRead(uint8_t pin);
 
-// External interrupts, Arduino Micro / Leonardo numbering (variants/leonardo/pins_arduino.h)
+// External interrupts: any GPIO on the RP2040 (arduino-pico: interrupt number = pin number)
 #define NOT_AN_INTERRUPT -1
 #define CHANGE 1
 #define FALLING 2
 #define RISING 3
-#define digitalPinToInterrupt(p) ((p) == 0 ? 2 : ((p) == 1 ? 3 : ((p) == 2 ? 1 : ((p) == 3 ? 0 : ((p) == 7 ? 4 : NOT_AN_INTERRUPT)))))
+#define digitalPinToInterrupt(p) (p)
 void attachInterrupt(uint8_t interruptNum, void (*userFunc)(void), int mode);
 inline void noInterrupts() {}
 inline void interrupts() {}

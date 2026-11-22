@@ -2,7 +2,7 @@
 
 Two boards, two firmwares, linked by an RJ11 cord (project overview: [../README.md](../README.md)):
 
-- **Motherboard** ([desktopia/](desktopia/README.md)): ATmega32U4 (16 MHz, 5 V), Arduino framework, PlatformIO. Drives
+- **Motherboard** ([desktopia/](desktopia/README.md)): RP2040 (3.3 V I/O), arduino-pico core, PlatformIO. Drives
   the motor (DIR + PWM) and switches its driver's supply, watches the motor current (INA226), reads the height with a
   VL53L1CB, runs the state machine and decides what the screen shows.
 - **HMI board** ([desktopia_HMI/](desktopia_HMI/README.md)): RP2040, arduino-pico core. Draws the round GC9A01 screen,
@@ -52,18 +52,18 @@ Boot, notice and fault screens are plain text in the same colours.
 
 ```
 firmware/
-  desktopia/                     motherboard (ATmega32U4), PlatformIO project
-    include/board_pins.h         pinout extracted from the schematic (Arduino numbers of the "leonardo" variant)
+  desktopia/                     motherboard (RP2040), PlatformIO project
+    include/board_pins.h         pinout extracted from the schematic (GPIO numbers)
     include/config.h             ALL motherboard settings, overridable with -DNAME=value in platformio.ini
     src/main.cpp                 setup() / loop()
     src/hmi_link.*               RS-485 master: screen content out, button levels in
     src/buttons.*                debounce + short / long press
     src/tof_sensor.*             VL53L1CB via the ST driver (STM32duino VL53L1X lib) + median filter
-    src/motor.*                  DIR + Timer1 PWM, soft start / soft stop, direction-change protection, driver supply
-    src/current_monitor.*        INA226: alert threshold, INT6 handler that cuts the motor, current reading
-    src/presets.*                internal EEPROM (magic + version + CRC-8)
+    src/motor.*                  DIR + PWM slice, soft start / soft stop, direction-change protection, driver supply
+    src/current_monitor.*        INA226: alert threshold, GP7 interrupt handler that cuts the motor, current reading
+    src/presets.*                EEPROM emulation in flash (magic + version + CRC-8)
     src/desk_controller.*        state machine, speed profile, safety checks
-    src/watchdog.*               hardware watchdog: the interrupt cuts the PWM, the reset follows
+    src/watchdog.*               timer interrupt cuts the PWM at 500 ms, the RP2040 watchdog resets at 1 s
   desktopia_HMI/                 HMI board (RP2040), PlatformIO project
     include/hmi_pins.h           pinout extracted from desktopia_HMI.kicad_sch
     include/hmi_config.h         HMI settings (link timing, debounce, screen)
@@ -84,8 +84,7 @@ firmware/
 
 The 12-pin FFC is replaced by a **6-conductor RJ11 cord (6P6C, sometimes sold as "RJ12")**. The motherboard has an
 RJ11 jack, the cord is soldered to the HMI board (it sits at 45° under the desk edge, see its README). Each board has an
-RS-485 transceiver: SP485EEN (5 V) on the motherboard, SP3485EN (3.3 V) on the HMI board; same
-pin-out, ±15 kV ESD on A/B, both JLCPCB *Basic* parts.
+RS-485 transceiver: SP3485EN (3.3 V) on both boards, ±15 kV ESD on A/B, a JLCPCB *Basic* part.
 
 | Pin | 1 | 2 | 3 | 4 | 5 | 6 |
 |---|---|---|---|---|---|---|
@@ -123,25 +122,25 @@ to, and once the cord is back a message would only state the obvious.
 
 Motherboard (`hardware/desktopia/desktopia.kicad_sch`):
 
-| Function | Schematic (label, or wire to) | MCU | Arduino |
+| Function | Schematic (label, or wire to) | GPIO (QFN pin) | Firmware |
 |---|---|---|---|
-| Motor DIR | `Mdir` (J6-1) | PC6 | D5 |
-| Motor PWM | `Mpwm` (J6-2) | PB6 / OC1B | D10 |
-| RS-485 RO → RX | wire to U5-1 (RO) | PD2 / RXD1 | D0 (Serial1) |
-| RS-485 DI ← TX | wire to U5-4 (DI) | PD3 / TXD1 | D1 (Serial1) |
-| RS-485 DE + /RE | wire to U5-2, U5-3 | PD4 | D4 |
-| I2C SDA / SCL | `SDA` / `SCL` | PD1 / PD0 | Wire |
-| ISP | wires to J2-3 / J2-4 / J2-1 (SCK / MOSI / MISO) | PB1 / PB2 / PB3 | J2 only |
-| Motor driver supply | `MOTOR_PWR` (Q4 → Q5, J5) | PD7 | D6, HIGH = driver powered |
-| Motor current alert | `I_ALERT` (U6-3, INA226) | PE6 / INT6 | D7, falling edge: PWM and driver supply cut |
-| ToF data ready | `TOF_INT` (U3 GPIO1, through Q3) | PB4 / PCINT4 | D8, not used yet (the ToF is polled over I2C) |
+| Motor PWM | `Mpwm` (J6-2, JP3 → U7 EN) | GP8 (11) | PWM slice 4 A |
+| Motor DIR | `Mdir` (J6-1, JP2 → U7 PH) | GP9 (12) | HIGH = up (`MOTOR_DIR_UP_LEVEL`) |
+| Motor driver supply | `MOTOR_PWR` (Q4 → Q5, J5) | GP12 (15) | HIGH = driver powered |
+| Motor current alert | `I_ALERT` (U6-3, INA226) | GP7 (9) | falling edge: PWM and driver supply cut |
+| Bridge sleep / fault | `nSLEEP` / `nFAULT` (U7) | GP10 (13) / GP11 (14) | not driven yet: the bridge sleeps |
+| ToF data ready | `TOF_INT` (U3 GPIO1, through Q3) | GP6 (8) | not used yet (the ToF is polled over I2C) |
+| I2C SDA / SCL | `SDA` / `SCL` | GP4 (6) / GP5 (7) | Wire (I2C0) |
+| RS-485 RO → RX | wire to U5-1 (RO) | GP17 (28) | Serial1 (UART0) |
+| RS-485 DE + /RE | wire to U5-2, U5-3 | GP18 (29) | HIGH = drive the bus |
+| RS-485 DI ← TX | wire to U5-4 (DI) | GP28 (40) | Serial1 (UART0) |
+| SWD | TP4 SWCLK, TP7 SWDIO | – | debug probe (+ TP11 RUN, TP12 GND) |
 
-Free: PB0, PB5, PB7, PC7, PD5, PD6, PF0, PF1, PF4-PF7. The five external interrupts are taken: INT0 / INT1 = I2C,
-INT2 / INT3 = Serial1 (RS-485), INT6 = `I_ALERT`. `TOF_INT` uses a pin-change interrupt (PCINT4, not covered by
-`attachInterrupt()`). PB0, PB5 and PB7 keep theirs (PCINT0 / 5 / 7).
-I2C: VL53L1CB at `0x29` (`0x52` in 8-bit notation) behind the BSS138 level shifters Q1 / Q2; INA226 current monitor U6 at `0x40`
-(A0 = A1 = GND) on the 5 V side. It measures the motor supply across the 2 mΩ shunt R23 (±41 A full scale, 1.25 mA/bit
-with a calibration of 2048). The firmware programs its alert threshold and checks its settings every second.
+Free: GP0-GP3, GP13-GP16, GP19-GP27, GP29. Any GPIO takes an interrupt (`attachInterrupt()`).
+I2C: VL53L1CB at `0x29` (`0x52` in 8-bit notation) behind the BSS138 level shifters Q1 / Q2 (2.8 V side, pull-ups to
+its AVDD); INA226 current monitor U6 at `0x40` (A0 = A1 = GND) on the 3.3 V side, pull-ups R1 / R5 to +3V3. The
+INA226 measures the motor supply across the 2 mΩ shunt R23 (±41 A full scale,
+1.25 mA/bit with a calibration of 2048). The firmware programs its alert threshold and checks its settings every second.
 The 5 V sent to the HMI board goes through the PTC F1 (500 mA). R14 / R17 (4.7 kΩ) bias the bus when nobody drives
 it; R16 (120 Ω termination) is not fitted (only for cords over ~5 m; then R14 / R17 = 680 Ω).
 
@@ -165,13 +164,17 @@ transceiver. The USB-C (through Schottky D1) only powers the board while it is f
 Motherboard (from `desktopia/`):
 
 ```bash
-pio run                                   # build (env desktopia)
-pio run -t upload                         # USB, Caterina bootloader (double-press RESET if the port does not show up)
+pio run                                   # build (env desktopia): .pio/build/desktopia/firmware.uf2
+pio run -t upload                         # USB (picotool), the board resets into its bootloader by itself
 pio run -e desktopia_debug -t upload      # same + logs on the USB serial port (115200 baud, TX only)
 pio run -e desktopia_motor_test -t upload # motor bench test, height sensor bypassed (see below)
 pio device monitor
-pio run -e desktopia_isp -t bootloader    # blank chip: burns bootloader + fuses via J2 (USBasp)
 ```
+
+First flash of a new motherboard: hold **BOOT1**, press **RST1** (or plug the USB-C cable), release BOOT1. The board
+shows up as a USB drive (RPI-RP2): run `pio run -t upload` or copy `firmware.uf2` onto it. The USB-C port powers the
++5V rail through D5 (the logic, the sensor and the HMI board through the cord, not the motor): no 24 V is needed to
+flash or to work on the firmware. With 24 V present the TPS5430 takes over. SWD: TP4 (SWCLK) / TP7 (SWDIO).
 
 HMI board (from `desktopia_HMI/`, the RP2040 platform and toolchain are downloaded on the first build):
 
@@ -185,9 +188,8 @@ drive (RPI-RP2), then run `pio run -t upload` or copy `firmware.uf2` onto the dr
 through TP4 (SWCLK) / TP3 (SWDIO) with a debug probe.
 
 Dependencies: the ST driver (`stm32duino/VL53L1X` 2.0.1, ULD), pinned to its tag; Max Gerhardt's
-`platform-raspberrypi` with Earle Philhower's arduino-pico core for the HMI board.
-Size: motherboard ≈ 20.9 KB of flash (73 % of the 28 KB next to the bootloader), ≈ 1 KB of RAM;
-HMI board ≈ 54 KB of flash, ≈ 19 KB of RAM.
+`platform-raspberrypi` with Earle Philhower's arduino-pico core for both boards.
+Size: motherboard ≈ 53 KB of flash, ≈ 10 KB of RAM; HMI board ≈ 54 KB of flash, ≈ 19 KB of RAM.
 
 ## Main settings
 
@@ -293,7 +295,7 @@ In the **motor** wire it is the average motor current. In the **supply** wire it
 ## Built-in protections
 
 - Motor current: the INA226 compares each averaged sample (every 8.8 ms) with `MOTOR_CURRENT_LIMIT_MA` by itself
-  and pulls `I_ALERT` low. The INT6 interrupt then cuts the PWM and the driver supply at once, with register writes
+  and pulls `I_ALERT` low. The GP7 interrupt then cuts the PWM and the driver supply at once, with register writes
   only, without waiting for the loop. The loop cannot switch them back on before it has seen the alert. Then
   **OVERCURRENT** screen, back to normal after 2.5 s once every button is released. Simulated: cut 12 ms after the
   current crosses the limit.
@@ -306,9 +308,8 @@ In the **motor** wire it is the average motor current. In the **supply** wire it
   movement longer than 60 s → immediate stop and fault screen; back to normal after 2.5 s if the cause is gone.
 - Software end stops `HEIGHT_MIN/MAX_MM` with slowdown; a button held at the end stop does not restart the motor.
 - The direction (DIR) only changes when the PWM is at 0, after 400 ms stopped.
-- 500 ms watchdog on the motherboard: if the loop freezes, an interrupt cuts the PWM and the driver supply, then the
-  MCU restarts.
-  It steps aside when the Arduino core reprograms the watchdog for the automatic reset into the bootloader (USB upload).
+- Two-stage watchdog on the motherboard: if the loop freezes for 500 ms, a timer interrupt cuts the PWM and the driver
+  supply; at 1 s the RP2040 hardware watchdog resets the chip (every pin back to an input with its pull-down).
 - 2 s watchdog on the HMI board, fed only while both cores make progress. A frozen HMI board stops answering, so the
   motherboard stops the motor.
 - A button held while the HMI board powers up is reported as pressed from its first answer, so a reconnection can never
@@ -332,10 +333,12 @@ still to do and the known issues (TPS5430 ENA, 5 V loop to measure, VL53L1CB I/O
 
 ## What has been verified, and what has not
 
-- **Motherboard build** with PlatformIO (avr-gcc 7.3.0), all environments, `-Wall -Wextra` with no warnings.
+- **Motherboard build** with PlatformIO (platform-raspberrypi, arduino-pico core), all environments, `-Wall -Wextra`
+  with no warnings.
 - **HMI board build** with PlatformIO (platform-raspberrypi, arduino-pico core), `-Wall -Wextra` with no warnings.
-- **PC simulation** (`sim/run.sh`, 912 checks passed) of the real sources of **both** boards against a simulated desk,
-  a noisy ToF (outliers and invalid values included), an INA226 with its alert line on INT6, the switched driver
+- **PC simulation** (`sim/run.sh`, 922 checks passed) of the real sources of **both** boards against a simulated desk,
+  mocks of the RP2040 SDK (GPIO override, PWM slice, repeating timer, watchdog),
+  a noisy ToF (outliers and invalid values included), an INA226 with its alert line on GP7, the switched driver
   supply, a simulated RS-485 bus and cord, buttons with bounce and an emulated GC9A01 screen. Covered: PWM ramps and ceiling, DIR direction, presets (short / long press, EEPROM, gauge), recall accuracy
   (standard deviation ≈ 2.3 mm with 1-3 mm sensor noise), end stops, faults, `millis()` rollover, screen rendering.
   Screen: every pixel-art state read back from the emulated panel (ring colour, chevrons, preset pills and marks,
@@ -345,7 +348,8 @@ still to do and the known issues (TPS5430 ENA, 5 V loop to measure, VL53L1CB I/O
   (NO LINK on the HMI board), 1 corrupted byte in 500 (no false stop), 20 ms motherboard loop.
   Power scenarios: driver supply on before the first PWM and off 300 s after the last move, never cut with the PWM
   running and never PWM without supply; jammed desk drawing 15 A (cut 12 ms after the 8 A crossing); alert hitting in
-  the middle of the loop; INA226 absent at boot, lost while moving, reset.
+  the middle of the loop; INA226 absent at boot, lost while moving, reset; loop stuck while moving (cut at 500 ms by
+  the timer interrupt, watchdog reset at 1 s).
 - **Schematics**: ERC of both projects, and the exported netlists checked pin by pin by script (for each change, every
   pin outside it keeps exactly its previous connections).
 - **Not tested**: on real boards. No trials with the motor driver, the VL53L1CB, the screen module, the transceivers or an

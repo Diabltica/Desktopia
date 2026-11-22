@@ -1,6 +1,8 @@
 #include "presets.h"
 #include <EEPROM.h>
 
+extern "C" uint8_t _EEPROM_start[];               // flash sector of the EEPROM emulation (arduino-pico linker script)
+
 namespace {
 constexpr uint8_t kMagic = 0xD5;
 constexpr uint8_t kVersion = 1;
@@ -18,6 +20,7 @@ uint8_t Presets::crc8(const uint8_t* data, uint8_t len) {
 uint8_t Presets::blobCrc(const Blob& b) { return crc8(reinterpret_cast<const uint8_t*>(&b), (uint8_t)(sizeof(Blob) - 1)); }
 
 void Presets::begin() {
+  EEPROM.begin(PRESET_EEPROM_SIZE);               // RAM copy of the flash sector
   EEPROM.get(PRESET_EEPROM_ADDR, _blob);
   if (_blob.magic == kMagic && _blob.version == kVersion && _blob.crc == blobCrc(_blob)) return;
 
@@ -29,18 +32,21 @@ void Presets::begin() {
 
 bool Presets::isSet(uint8_t index) const { return index < PRESET_COUNT && _blob.heights[index] != kEmpty; }
 
-uint16_t Presets::get(uint8_t index) const { return index < PRESET_COUNT ? _blob.heights[index] : kEmpty; }
+uint16_t Presets::get(uint8_t index) const { return index < PRESET_COUNT ? _blob.heights[index] : (uint16_t)kEmpty; }
 
 bool Presets::save(uint8_t index, uint16_t heightMm) {
   if (index >= PRESET_COUNT || heightMm == kEmpty) return false;
   uint16_t previous = _blob.heights[index];
   _blob.heights[index] = heightMm;
   _blob.crc = blobCrc(_blob);
-  EEPROM.put(PRESET_EEPROM_ADDR, _blob);           // put() only rewrites the bytes that changed
-
-  Blob check;
-  EEPROM.get(PRESET_EEPROM_ADDR, check);
-  if (memcmp(&check, &_blob, sizeof(Blob)) == 0) return true;
+  EEPROM.put(PRESET_EEPROM_ADDR, _blob);
+  // commit() erases and programs the flash sector (~50 ms, interrupts off): only called from the Idle state, with
+  // the motor stopped. The flash itself is then compared with the RAM copy.
+  if (EEPROM.commit()) {
+    Blob check;
+    memcpy(&check, _EEPROM_start + PRESET_EEPROM_ADDR, sizeof(Blob));   // read back through XIP
+    if (memcmp(&check, &_blob, sizeof(Blob)) == 0) return true;
+  }
 
   _blob.heights[index] = previous;                 // write failed: keep RAM consistent with what is stored
   _blob.crc = blobCrc(_blob);

@@ -5,7 +5,9 @@ class TwoWire {
  public:
   void begin() {}
   void setClock(uint32_t) {}
-  void setWireTimeout(uint32_t = 25000, bool = false) {}
+  bool setSDA(uint8_t) { return true; }
+  bool setSCL(uint8_t) { return true; }
+  void setTimeout(uint32_t = 25, bool = false) {}
   void beginTransmission(uint8_t addr);
   size_t write(uint8_t b);
   uint8_t endTransmission(uint8_t sendStop = 1);

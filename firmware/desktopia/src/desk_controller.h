@@ -15,7 +15,7 @@
 //                                          ──any button (Up + Down)──▶ Idle, inputs ignored until release
 //  Idle ──preset held 400 ms──▶ Saving ──held 2 s: save──▶ Idle (+ success overlay) / released: cancel
 //  any state ──sensor lost while moving, stall, wrong way, timeout, watchdog──▶ Fault ──cleared──▶ Idle
-//  any state ──motor current alert (INA226, driver supply already cut by INT6)──▶ Fault ──cleared──▶ Idle
+//  any state ──motor current alert (INA226, driver supply already cut by GP7)──▶ Fault ──cleared──▶ Idle
 //  any state ──HMI link lost (cord unplugged: the HMI board is unpowered)──▶ Fault ──link back──▶ Idle (no fault screen)
 // The motor module switches the driver supply on for a move and off after MOTOR_POWER_IDLE_OFF_MS of rest.
 class DeskController {

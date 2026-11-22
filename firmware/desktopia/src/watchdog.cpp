@@ -1,45 +1,38 @@
 #include "watchdog.h"
 #include "config.h"
 #include "motor.h"
-#include <avr/io.h>
-#include <avr/wdt.h>
-#include <avr/interrupt.h>
+#include <hardware/watchdog.h>
+#include <pico/time.h>
 
-// Runs before main(): after a watchdog reset the WDT is still armed with a 15 ms timeout,
-// which would boot-loop. Clear the flag and stop it, remembering why we restarted.
-static uint8_t g_resetFlags __attribute__((section(".noinit")));
-void earlyWatchdogOff(void) __attribute__((naked, used, section(".init3")));
-void earlyWatchdogOff(void) {
-  g_resetFlags = MCUSR;
-  MCUSR = 0;
-  wdt_disable();
-}
-
-ISR(WDT_vect) { motorFailsafeCut(); }
+static_assert(WATCHDOG_CUT_MS >= 50 && WATCHDOG_RESET_MS > WATCHDOG_CUT_MS, "cut first, reset later");
+static_assert(WATCHDOG_RESET_MS <= 8000, "RP2040 watchdog: 8.3 s at most");
 
 namespace {
-// WDE + prescaler bits: identifies "my" watchdog configuration.
-constexpr uint8_t kConfigMask = _BV(WDE) | _BV(WDP3) | _BV(WDP2) | _BV(WDP1) | _BV(WDP0);
-uint8_t g_myConfig = 0;
+volatile uint32_t g_lastKick = 0;
+repeating_timer_t g_timer;
+
+// Timer interrupt, every 50 ms: the loop has not kicked for WATCHDOG_CUT_MS → cut the PWM and the driver supply,
+// even if the loop is stuck in a blocking call. The hardware watchdog resets the chip later if it stays stuck.
+bool onTick(repeating_timer_t*) {
+  if ((uint32_t)(millis() - g_lastKick) >= WATCHDOG_CUT_MS) motorFailsafeCut();
+  return true;
+}
 }  // namespace
 
 namespace watchdog {
 
 void begin() {
-  wdt_enable(WATCHDOG_TIMEOUT);
-  WDTCSR |= _BV(WDIE);           // interrupt first, reset on the next timeout
-  g_myConfig = WDTCSR & kConfigMask;
+  g_lastKick = millis();
+  add_repeating_timer_ms(-50, onTick, nullptr, &g_timer);
+  watchdog_enable(WATCHDOG_RESET_MS, true);        // paused while a debugger halts the cores
 }
 
 void kick() {
-  // The Arduino USB core resets into the bootloader (that is what `pio run -t upload` relies on) by
-  // re-programming this very watchdog to 120 ms after a "1200 bps touch". Never fight it: if the
-  // configuration is not mine any more, stop kicking and let it expire.
-  if ((WDTCSR & kConfigMask) != g_myConfig) return;
-  wdt_reset();
-  WDTCSR |= _BV(WDIE);           // re-arm the interrupt stage (hardware clears it after it fires)
+  g_lastKick = millis();
+  watchdog_update();
 }
 
-bool lastResetWasWatchdog() { return (g_resetFlags & _BV(WDRF)) != 0; }
+// true only after a timeout of the watchdog armed by watchdog_enable(), not after a reboot asked over USB
+bool lastResetWasWatchdog() { return watchdog_enable_caused_reboot(); }
 
 }  // namespace watchdog

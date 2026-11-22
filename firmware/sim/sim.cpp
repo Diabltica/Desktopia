@@ -1,10 +1,10 @@
 // Host-side simulation bench for the Desktopia firmwares.
 // Both boards run in the same process, from their real sources:
-//   motherboard (ATmega32U4): buttons, hmi_link, motor, presets, tof_sensor, current_monitor, desk_controller, watchdog
+//   motherboard (RP2040):     buttons, hmi_link, motor, presets, tof_sensor, current_monitor, desk_controller, watchdog
 //   HMI board (RP2040):        hmi_app, display, gc9a01, ui_text
 //   both:                      firmware/shared/hmi_link/hmi_protocol
-// against mocks of the Arduino cores, a simulated desk, a noisy ToF sensor, the switched driver supply (Q5), an INA226
-// with its ALERT line on INT6, an RS-485 bus (cord plugged / unplugged, data pair cut, A/B swapped by a reversed cord,
+// against mocks of the Arduino cores and of the RP2040 SDK (GPIO, PWM, watchdog, repeating timer), a simulated desk, a
+// noisy ToF sensor, the switched driver supply (Q5), an INA226 with its ALERT line on GP7, an RS-485 bus (cord plugged / unplugged, data pair cut, A/B swapped by a reversed cord,
 // corrupted bytes) and a GC9A01 emulator that rebuilds the screen pixel by pixel. The two cores of the RP2040 are run
 // one after the other at every simulated millisecond.
 #include <Arduino.h>
@@ -36,38 +36,85 @@
 #include "hmi_hw.h"
 #include "hmi_pins.h"
 #include "canvas.h"
-#include <avr/wdt.h>
+#include <hardware/gpio.h>
+#include <hardware/pwm.h>
+#include <hardware/watchdog.h>
+#include <pico/time.h>
 
 // ------------------------------------------------------------------------------------------------
-//  Mocked Arduino / AVR / RP2040 world
+//  Mocked Arduino / RP2040 world (the motherboard pins are moved by BOARD_PIN_OFFSET, see run.sh)
 // ------------------------------------------------------------------------------------------------
 static uint32_t g_now = 0;
 static bool g_delayRunsClock = true;                // false while the HMI board boots in the background
 static uint8_t g_pinLevel[64];
 static uint8_t g_pinMode[64];
-volatile uint8_t TCCR1A, TCCR1B, PORTB, PORTD;
-volatile uint16_t ICR1, OCR1B;
-static void (*g_isr[8])() = {nullptr};             // attachInterrupt() table, by interrupt number
-static int g_isrMode[8];
+static void (*g_isr[64])() = {nullptr};            // attachInterrupt() table, by interrupt number (= pin)
+static int g_isrMode[64];
+static uint8_t g_func[64];                          // RP2040 pad function (gpio_set_function)
+static uint8_t g_outover[64];                       // RP2040 output override (gpio_set_outover)
+static uint16_t g_pwmLevel[64];                     // PWM compare level of each pin's slice channel
+static uint16_t g_pwmWrap[8];
+static bool g_pwmOn[8];
+static uint32_t g_wdTimeoutMs = 0, g_wdLastUpdate = 0; // hardware watchdog: armed timeout, last watchdog_update()
+static bool g_wdExpired = false;
+static repeating_timer_t* g_timers[4];              // add_repeating_timer_ms(), run every simulated ms
+static int g_timerCount = 0;
 static unsigned g_supplyCutUnderLoad = 0;           // driver supply switched off by the loop with the PWM running
 SPIClass SPI;
 TwoWire Wire;
 EEPROMClass EEPROM;
 SerialMock Serial;
 SimTof* g_simTof = nullptr;
-volatile uint8_t WDTCSR, MCUSR;
-unsigned g_wdrCount = 0;
+extern "C" { uint8_t _EEPROM_start[4096]; }         // flash sector of the EEPROM emulation
 
 unsigned long millis() { return g_now; }
 void delay(unsigned long ms) { if (g_delayRunsClock) g_now += (uint32_t)ms; }
 void delayMicroseconds(unsigned int) {}
-void pinMode(uint8_t p, uint8_t m) { g_pinMode[p] = m; }
-void attachInterrupt(uint8_t n, void (*f)(), int mode) { if (n < 8) { g_isr[n] = f; g_isrMode[n] = mode; } }
+void pinMode(uint8_t p, uint8_t m) { g_pinMode[p] = m; g_func[p] = GPIO_FUNC_SIO; }
+void attachInterrupt(uint8_t n, void (*f)(), int mode) { if (n < 64) { g_isr[n] = f; g_isrMode[n] = mode; } }
 
-static double pwmDuty() { return ((TCCR1A & _BV(COM1B1)) && ICR1) ? (double)OCR1B / ICR1 : 0.0; }
-static bool supplySwitchOn() { return PORTD & _BV(pins::MOTOR_POWER_PORT_BIT); }   // Q5 gate driven (MOTOR_PWR high)
+// RP2040 SDK
+void gpio_set_function(uint g, enum gpio_function f) { g_func[g] = (uint8_t)f; }
+void gpio_set_outover(uint g, uint v) { g_outover[g] = (uint8_t)v; }
+void gpio_put(uint g, bool v) { digitalWrite((uint8_t)g, v ? HIGH : LOW); }
+void pwm_init(uint slice, pwm_config* c, bool start) { g_pwmWrap[slice] = c->top; g_pwmOn[slice] = start; }
+void pwm_set_gpio_level(uint g, uint16_t level) { g_pwmLevel[g] = level; }
+void pwm_set_enabled(uint slice, bool on) { g_pwmOn[slice] = on; }
+void watchdog_enable(uint32_t ms, bool) { g_wdTimeoutMs = ms; g_wdLastUpdate = g_now; }
+void watchdog_update() { g_wdLastUpdate = g_now; }
+bool watchdog_enable_caused_reboot() { return false; }
+bool add_repeating_timer_ms(int32_t ms, repeating_timer_callback_t cb, void* user, repeating_timer_t* t) {
+  if (g_timerCount >= 4) return false;
+  t->period_ms = (uint32_t)(ms < 0 ? -ms : ms);
+  t->next_ms = g_now + t->period_ms;
+  t->callback = cb;
+  t->user_data = user;
+  g_timers[g_timerCount++] = t;
+  return true;
+}
+// what the RP2040 timer interrupts and the watchdog counter do during one simulated ms
+static void runTimers() {
+  for (int i = 0; i < g_timerCount; i++) {
+    repeating_timer_t* t = g_timers[i];
+    while ((int32_t)(g_now - t->next_ms) >= 0) { t->next_ms += t->period_ms; t->callback(t); }
+  }
+  if (g_wdTimeoutMs && g_now - g_wdLastUpdate >= g_wdTimeoutMs) g_wdExpired = true;   // the chip would reset here
+}
 
-// I_ALERT (PE6 / INT6): open drain, pulled up by R25. A falling edge runs the handler attached to INT6.
+// Duty seen by the driver on the PWM pin: forced low by the output override, plain GPIO, or the PWM slice.
+static double pwmDuty() {
+  const uint8_t p = pins::MOTOR_PWM;
+  if (g_outover[p] == GPIO_OVERRIDE_LOW) return 0.0;
+  if (g_outover[p] == GPIO_OVERRIDE_HIGH) return 1.0;
+  if (g_func[p] != GPIO_FUNC_PWM) return g_pinLevel[p] ? 1.0 : 0.0;
+  uint slice = pwm_gpio_to_slice_num(p);
+  if (!g_pwmOn[slice]) return 0.0;
+  double d = g_pwmLevel[p] / (g_pwmWrap[slice] + 1.0);
+  return d > 1.0 ? 1.0 : d;
+}
+static bool supplySwitchOn() { return g_pinLevel[pins::MOTOR_POWER]; }   // Q5 gate driven (MOTOR_PWR high)
+
+// I_ALERT (GP7): open drain, pulled up by R25. A falling edge runs the handler attached to its interrupt.
 static void setAlertLine(bool low) {
   uint8_t old = g_pinLevel[pins::I_ALERT];
   g_pinLevel[pins::I_ALERT] = low ? LOW : HIGH;
@@ -83,16 +130,7 @@ static void lcdResetLine(bool high);
 void digitalWrite(uint8_t p, uint8_t v) {
   bool old = g_pinLevel[p];
   g_pinLevel[p] = v;
-  if (p == pins::MOTOR_PWM) {
-    if (v) PORTB |= _BV(PORTB6); else PORTB &= (uint8_t)~_BV(PORTB6);
-  }
-  if (p == pins::MOTOR_POWER) {
-    if (v) PORTD |= _BV(pins::MOTOR_POWER_PORT_BIT);
-    else {
-      if (supplySwitchOn() && pwmDuty() > 0) g_supplyCutUnderLoad++;
-      PORTD &= (uint8_t)~_BV(pins::MOTOR_POWER_PORT_BIT);
-    }
-  }
+  if (p == pins::MOTOR_POWER && !v && old && pwmDuty() > 0) g_supplyCutUnderLoad++;
   if (p == hmipins::LCD_CS && v && !old) lcdCsEdge();
   if (p == hmipins::LCD_RST) lcdResetLine(v != 0);
 }
@@ -214,7 +252,7 @@ static void lcdResetLine(bool high) { if (g_lcd) g_lcd->resetLine(high); }
 void simSpiByte(uint8_t b) { if (g_lcd) g_lcd->byte(b); }
 
 // ------------------------------------------------------------------------------------------------
-//  RS-485 bus between the two transceivers (SP485EEN / SP3485EN) + the RJ11 cord
+//  RS-485 bus between the two transceivers (SP3485EN on both boards) + the RJ11 cord
 //  A byte reaches the other side only if the sender's transceiver drives the bus (DE high), the HMI board is
 //  powered (the cord is in) and the data pair is intact. With A and B swapped relative to the HMI board's UART
 //  polarity, the receiver gets garbage.
@@ -294,7 +332,7 @@ struct SimIna {
     bool over = (mask & 0x8000) && shunt > (int16_t)limit;
     if (mask & 0x0001) { if (over) aff = true; }     // LEN: stays set until Mask / Enable is read
     else aff = over;
-    setAlertLine(alertActive());                     // a falling edge runs the INT6 handler right here
+    setAlertLine(alertActive());                     // a falling edge runs the GP7 handler right here
   }
   uint16_t read() {
     switch (ptr) {
@@ -432,13 +470,14 @@ struct World {
     supplyWasOn = on;
     double d = duty();
     if (d > maxDuty) maxDuty = d;
-    if (!(TCCR1A & _BV(COM1B1)) && (PORTB & _BV(PORTB6))) pwmStuckHigh++;   // output disconnected but latch high = full speed!
+    if (g_func[pins::MOTOR_PWM] != GPIO_FUNC_PWM && g_outover[pins::MOTOR_PWM] == GPIO_OVERRIDE_NORMAL &&
+        g_pinLevel[pins::MOTOR_PWM]) pwmStuckHigh++;                     // plain GPIO output left high = full speed!
     if (d > 0 && !supplyReady()) pwmWithoutSupply++;                      // PWM on the driver input, supply off or rising
     double v = 0;
     if (supplyReady() && d > dutyThreshold) v = vMaxMmS * (d - dutyThreshold) / (kMaxDuty - dutyThreshold);
     if (jam) v = 0;
     amps = supplyReady() ? d / kMaxDuty * (jam ? jamA : runA) : 0.0;
-    g_ina.step1ms(amps);                                                  // may run the INT6 handler before the next loop
+    g_ina.step1ms(amps);                                                  // may run the GP7 handler before the next loop
     h += (dirUp() ? 1.0 : -1.0) * polarity * v * 0.001;
     if (h < mechMin) h = mechMin;
     if (h > mechMax) h = mechMax;
@@ -511,7 +550,13 @@ struct Rig {
     memset(g_pinMode, 0, sizeof(g_pinMode));
     for (uint8_t p : kButtonPin) g_pinLevel[p] = HIGH;
     g_pinLevel[pins::I_ALERT] = HIGH;                // R25 pull-up
-    TCCR1A = TCCR1B = PORTB = PORTD = 0; ICR1 = OCR1B = 0;
+    memset(g_func, 0, sizeof(g_func));
+    memset(g_outover, 0, sizeof(g_outover));
+    memset(g_pwmLevel, 0, sizeof(g_pwmLevel));
+    memset(g_pwmWrap, 0, sizeof(g_pwmWrap));
+    memset(g_pwmOn, 0, sizeof(g_pwmOn));
+    g_timerCount = 0;
+    g_wdTimeoutMs = 0; g_wdExpired = false;
     memset(g_isr, 0, sizeof(g_isr));
     g_supplyCutUnderLoad = 0;
     g_ina = SimIna(); g_ina.present = inaAtBoot;
@@ -543,7 +588,7 @@ struct Rig {
     check(lcd.csViolations == 0, "%u SPI bytes were sent while CS was high", lcd.csViolations);
     check(lcd.windowMismatch == 0, "%u pixel windows were not filled exactly", lcd.windowMismatch);
     check(expectSensorViolations || g_tof.violations == 0, "ST driver entered %u times while the sensor did not ACK", g_tof.violations);
-    check(w.pwmStuckHigh == 0, "PWM pin latched high while disconnected for %u ms", w.pwmStuckHigh);
+    check(w.pwmStuckHigh == 0, "PWM pin left high as a plain GPIO for %u ms", w.pwmStuckHigh);
     check(w.maxDuty <= kMaxDuty + 0.0005, "duty reached %.3f", w.maxDuty);
     check(w.pwmWithoutSupply == 0, "PWM sent to the driver for %u ms while its supply was off or still rising", w.pwmWithoutSupply);
     check(g_supplyCutUnderLoad == 0, "driver supply switched off %u times with the PWM running", g_supplyCutUnderLoad);
@@ -577,6 +622,7 @@ struct Rig {
 
   void step() {
     g_now += 1;
+    runTimers();                                         // RP2040 timer interrupts (watchdog stage 1), watchdog counter
     w.stepOneMs();
     uint8_t before = lastDirLevel;
     double dutyBefore = w.duty();                        // what the bridge was driving when DIR may change below
@@ -946,8 +992,8 @@ static void testFaults() {
     Rig r(900.0);
     r.run(400);
     r.press(UP); r.run(1500);
-    motorFailsafeCut();                                   // what the watchdog interrupt does
-    check(!(TCCR1A & _BV(COM1B1)) && !(PORTB & _BV(PORTB6)), "failsafe must disconnect and clear the PWM pin");
+    motorFailsafeCut();                                   // what the watchdog timer interrupt does
+    check(g_outover[pins::MOTOR_PWM] == GPIO_OVERRIDE_LOW, "failsafe must force the PWM pin low");
     check(!supplySwitchOn(), "failsafe must switch the driver supply off");
     r.run(5);
     check(r.w.duty() == 0.0, "duty must stay 0 after the failsafe");
@@ -1009,7 +1055,7 @@ static void testMotorSupply() {
 }
 
 static void testOvercurrent() {
-  printf("\n[overcurrent] INA226 alert on INT6: PWM and driver supply cut in the interrupt, fault, recovery\n");
+  printf("\n[overcurrent] INA226 alert on GP7: PWM and driver supply cut in the interrupt, fault, recovery\n");
   Rig r(900.0);
   int n = digitalPinToInterrupt(pins::I_ALERT);
   check(n >= 0 && g_isr[n] && g_isrMode[n] == FALLING, "I_ALERT is not on an external interrupt (falling edge)");
@@ -1059,7 +1105,7 @@ static void testOvercurrent() {
   Rig r2(900.0);
   r2.run(400);
   r2.press(UP); r2.run(1500);
-  g_isr[n]();                                            // INT6 handler
+  g_isr[n]();                                            // GP7 interrupt handler
   r2.motor.update(g_now + 1);
   check(pwmDuty() == 0.0 && !supplySwitchOn(), "Motor::update() undid the interrupt cut (duty %.3f, supply %d)", pwmDuty(), supplySwitchOn());
   r2.run(5);
@@ -1218,24 +1264,35 @@ static void testMonteCarlo() {
   printf("  %d runs: mean error %+.2f mm, sd %.2f mm, worst %.2f mm, false faults %d\n", n, mean, sd, worst, faults);
 }
 
-static void testWatchdogGuard() {
-  printf("\n[watchdog] kick() must not fight the USB core's 120 ms bootloader reset\n");
-  g_wdrCount = 0;
+static void testWatchdog() {
+  printf("\n[watchdog] loop stuck while moving: the timer interrupt cuts the motor, the hardware watchdog resets later\n");
+  Rig r(900.0);
+  r.run(400);
+  r.press(UP);
   watchdog::begin();
-  check((WDTCSR & _BV(WDE)) && (WDTCSR & _BV(WDIE)), "watchdog should run in interrupt + reset mode");
-  watchdog::kick(); watchdog::kick();
-  check(g_wdrCount == 2, "kicks not executed (%u)", g_wdrCount);
-  uint8_t mine = WDTCSR;
-  wdt_enable(WDTO_120MS);                                // what the Arduino USB core does after a 1200 bps touch
-  unsigned before = g_wdrCount;
-  watchdog::kick(); watchdog::kick(); watchdog::kick();
-  check(g_wdrCount == before, "kick() kept resetting a watchdog that was re-programmed by the USB core");
-  WDTCSR = mine;
+  check(g_wdTimeoutMs == WATCHDOG_RESET_MS, "hardware watchdog armed with %u ms (expected %u)", g_wdTimeoutMs,
+        (unsigned)WATCHDOG_RESET_MS);
+  for (int i = 0; i < 1500; i++) { watchdog::kick(); r.step(); }
+  check(pwmDuty() > 0.0 && !g_wdExpired, "a loop that kicks must keep moving (duty %.3f, expired %d)", pwmDuty(), g_wdExpired);
+  // the loop stops right after this last kick (stuck in a driver call): time, the desk and the timer interrupt go on
   watchdog::kick();
-  check(g_wdrCount == before + 1, "kick() did not resume after the original configuration came back");
-  WDTCSR &= (uint8_t)~_BV(WDIE);
-  watchdog::kick();
-  check(WDTCSR & _BV(WDIE), "kick() must re-arm the interrupt stage");
+  uint32_t t0 = g_now, tCut = 0, tReset = 0;
+  while (g_now - t0 < WATCHDOG_RESET_MS + 100) {
+    g_now += 1;
+    runTimers();
+    r.w.stepOneMs();
+    if (!tCut && pwmDuty() == 0.0 && !supplySwitchOn()) tCut = g_now - t0;
+    if (!tReset && g_wdExpired) tReset = g_now - t0;
+  }
+  check(tCut >= WATCHDOG_CUT_MS && tCut <= WATCHDOG_CUT_MS + 60, "motor cut %u ms after the loop stopped (expected %u)", tCut,
+        (unsigned)WATCHDOG_CUT_MS);
+  check(tReset == WATCHDOG_RESET_MS, "hardware watchdog expired after %u ms (expected %u)", tReset, (unsigned)WATCHDOG_RESET_MS);
+  printf("  loop stuck: PWM and driver supply cut after %u ms, chip reset after %u ms\n", tCut, tReset);
+  // Had the loop come back before the reset, the controller sees the failsafe and shows a fault.
+  g_timerCount = 0; g_wdTimeoutMs = 0; g_wdExpired = false;
+  r.run(5);
+  check(r.w.duty() == 0.0, "duty must stay 0 after the failsafe");
+  check(r.ctrl.ui().screen == UiModel::Screen::Fault, "failsafe should raise a fault, screen=%s", screenName(r.ctrl.ui().screen));
 }
 
 static void testGaugeScreens() {
@@ -1576,7 +1633,7 @@ static void testUnplugSlowLoop() {
 }
 
 int main() {
-  printf("Desktopia simulation – motherboard (ATmega32U4) + HMI board (RP2040) over RS-485\n");
+  printf("Desktopia simulation – motherboard (RP2040) + HMI board (RP2040) over RS-485\n");
   testProtocol();
   testBoot();
   testManualUp();
@@ -1596,7 +1653,7 @@ int main() {
   testNoSensorNotices();
   testRollover();
   testMonteCarlo();
-  testWatchdogGuard();
+  testWatchdog();
   testGaugeScreens();
   testPixelArt();
   filmAnimations();

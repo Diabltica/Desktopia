@@ -28,7 +28,7 @@ constexpr uint16_t kMaskEnable = 0x8000 | 0x0001;
 
 volatile bool g_alert = false;
 
-void onAlert() {                  // INT6, falling edge of the INA226 ALERT output
+void onAlert() {                  // GP7, falling edge of the INA226 ALERT output
   motorHardCut();                 // PWM low, then Q5 open: no wait for the loop
   g_alert = true;
 }
@@ -64,7 +64,7 @@ bool CurrentMonitor::configure() {
 }
 
 bool CurrentMonitor::begin() {
-  pinMode(pins::I_ALERT, INPUT);                                     // open drain, pulled up to 5 V by R25
+  pinMode(pins::I_ALERT, INPUT);                                     // open drain, pulled up to 3.3 V by R25
   configure();
   attachInterrupt(digitalPinToInterrupt(pins::I_ALERT), onAlert, FALLING);
   _lastCheck = millis();

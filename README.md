@@ -12,7 +12,7 @@ go back to three saved heights at the press of a button.
 ```mermaid
 flowchart LR
     PSU[24 V power supply] -->|J1| MB
-    subgraph MB[Motherboard - ATmega32U4]
+    subgraph MB[Motherboard - RP2040]
         direction TB
         SHUNT[2 mΩ shunt + INA226]
         SW[P-MOSFET supply switch]
@@ -25,7 +25,7 @@ flowchart LR
 ```
 
 - The **motherboard** makes every decision. It reads the height (VL53L1CB), runs the state machine, drives the motor
-  driver (direction + PWM, with ramps) and stores the presets in its EEPROM. It also switches the driver's 24 V supply:
+  driver (direction + PWM, with ramps) and stores the presets in its flash. It also switches the driver's 24 V supply:
   on for a move, off after 5 minutes without one, and off at once if the motor current goes over the limit (INA226).
 - The **HMI board** only displays what the motherboard sends and reports the button levels. It is powered by the
   motherboard through the RJ11 cord, which also carries the RS-485 link (250 kbaud, polled every 10 ms).
@@ -49,7 +49,7 @@ flowchart LR
 | [hardware/desktopia_HMI/](hardware/desktopia_HMI/) | HMI board KiCad project (schematic, PCB) | [README](hardware/desktopia_HMI/README.md) |
 | [hardware/kicad_library/](hardware/kicad_library/) | symbols and footprints shared by both KiCad projects (`JLCImport`, ...) | |
 | [hardware/render.sh](hardware/render.sh) | renders the schematic / PCB / 3D images of the board READMEs; run by the [*Hardware images*](.github/workflows/hardware-images.yml) workflow on every push | |
-| [firmware/desktopia/](firmware/desktopia/) | motherboard firmware (ATmega32U4, PlatformIO) | [README](firmware/desktopia/README.md) |
+| [firmware/desktopia/](firmware/desktopia/) | motherboard firmware (RP2040, PlatformIO) | [README](firmware/desktopia/README.md) |
 | [firmware/desktopia_HMI/](firmware/desktopia_HMI/) | HMI board firmware (RP2040, PlatformIO) | [README](firmware/desktopia_HMI/README.md) |
 | [firmware/shared/hmi_link/](firmware/shared/hmi_link/) | link protocol and screen model, compiled into both firmwares | [hmi_protocol.h](firmware/shared/hmi_link/hmi_protocol.h) |
 | [firmware/sim/](firmware/sim/) | PC simulation of both boards from their real sources (Linux / WSL) | [README](firmware/README.md#simulation-bench-optional) |

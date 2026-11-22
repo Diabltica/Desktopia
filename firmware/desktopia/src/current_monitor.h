@@ -4,11 +4,11 @@
 // Motor current through the INA226 (U6, I2C 0x40) and the 2 mOhm shunt R23, on the 24 V side of the switch Q5.
 //
 // The INA226 compares every averaged shunt sample (8.8 ms) with MOTOR_CURRENT_LIMIT_MA by itself and pulls its
-// ALERT output low (latched). That edge on PE6 / INT6 cuts the PWM and the driver supply at once, in the interrupt
+// ALERT output low (latched). That edge on GP7 cuts the PWM and the driver supply at once, in the interrupt
 // (register writes only); the loop then sees consumeAlert() and raises the fault.
 class CurrentMonitor {
  public:
-  bool begin();                                   // probes and configures the INA226, arms INT6
+  bool begin();                                   // probes and configures the INA226, arms the GP7 interrupt
   void update(uint32_t nowMs);                    // checks the configuration, retries the init while it does not answer
   void allowReinit(bool allowed) { _reinitAllowed = allowed; }
 

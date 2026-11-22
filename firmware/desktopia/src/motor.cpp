@@ -1,14 +1,16 @@
 #include "motor.h"
 #include "board_pins.h"
 #include "config.h"
-#include <avr/io.h>
-#include <util/atomic.h>
+#include <hardware/clocks.h>
+#include <hardware/gpio.h>
+#include <hardware/pwm.h>
+#include <hardware/sync.h>
 
 static_assert(MOTOR_DIR_UP_LEVEL != MOTOR_DIR_DOWN_LEVEL, "UP and DOWN levels must differ");
 static_assert(MOTOR_PWM_MAX_PERCENT > 0 && MOTOR_PWM_MAX_PERCENT <= 100, "MOTOR_PWM_MAX_PERCENT out of range");
 static_assert(MOTOR_PWM_MIN_PERCENT >= 0 && MOTOR_PWM_MIN_PERCENT < MOTOR_PWM_MAX_PERCENT, "MOTOR_PWM_MIN_PERCENT out of range");
 static_assert(MOTOR_SOFT_START_MS > 0 && MOTOR_SOFT_STOP_MS > 0, "ramp times must be positive");
-static_assert(F_CPU / MOTOR_PWM_FREQ_HZ >= 100 && F_CPU / MOTOR_PWM_FREQ_HZ <= 65536UL, "MOTOR_PWM_FREQ_HZ out of range (245 Hz .. 160 kHz)");
+static_assert(MOTOR_PWM_FREQ_HZ >= 100UL && MOTOR_PWM_FREQ_HZ <= 100000UL, "MOTOR_PWM_FREQ_HZ out of range (100 Hz .. 100 kHz)");
 static_assert(MOTOR_PWM_FREQ_HZ <= 20000UL, "MOTOR_PWM_FREQ_HZ above the 20 kHz rating of the MD10C R3 driver");
 static_assert(MOTOR_POWER_SETTLE_MS >= 30, "Q5 needs ~15 ms to switch the driver supply on, the driver a few more");
 static_assert(MOTOR_POWER_IDLE_OFF_MS >= 1000, "MOTOR_POWER_IDLE_OFF_MS too short: the supply would toggle between moves");
@@ -21,12 +23,17 @@ constexpr uint32_t kMaxPermille = (uint32_t)MOTOR_PWM_MAX_PERCENT * 10UL;
 constexpr uint32_t kMaxQ10 = kMaxPermille << 10;
 constexpr uint32_t kRateUp = kMaxQ10 / MOTOR_SOFT_START_MS;      // Q10-permille per ms
 constexpr uint32_t kRateDown = kMaxQ10 / MOTOR_SOFT_STOP_MS;
+
+// The PWM pin stays on its PWM slice; its pad output is forced low (output override) whenever the duty is 0 or the
+// motor is cut. One register write, effective at once, whatever the slice is doing (a new compare value would only
+// load at the end of the PWM period).
+inline void pwmPinForceLow() { gpio_set_outover(pins::MOTOR_PWM, GPIO_OVERRIDE_LOW); }
+inline void pwmPinRelease() { gpio_set_outover(pins::MOTOR_PWM, GPIO_OVERRIDE_NORMAL); }
 }  // namespace
 
 void motorHardCut() {
-  TCCR1A &= (uint8_t) ~_BV(COM1B1);      // disconnect OC1B from the pin
-  PORTB &= (uint8_t) ~_BV(PORTB6);       // and force it low
-  PORTD &= (uint8_t) ~_BV(pins::MOTOR_POWER_PORT_BIT);   // then open Q5 (~20 ms): the driver is isolated
+  pwmPinForceLow();                      // PWM output low now
+  gpio_put(pins::MOTOR_POWER, 0);        // then open Q5 (~20 ms): the driver is isolated
   g_cutLatched = true;                   // the loop may still be inside Motor::update(): it must not undo this
 }
 
@@ -43,14 +50,21 @@ void Motor::begin() {
   pinMode(pins::MOTOR_POWER, OUTPUT);
   setPower(false, millis());
 
-  _top = (uint16_t)(F_CPU / MOTOR_PWM_FREQ_HZ - 1);
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-    // Timer1, mode 14 (fast PWM, TOP = ICR1), prescaler 1. OC1B stays disconnected while the duty is 0.
-    TCCR1A = _BV(WGM11);
-    TCCR1B = _BV(WGM13) | _BV(WGM12) | _BV(CS10);
-    ICR1 = _top;
-    OCR1B = 0;
-  }
+  // PWM slice of the pin: integer clock divider, then TOP so that the period is 1 / MOTOR_PWM_FREQ_HZ.
+  // 125 MHz / 4 kHz = 31250 counts per period.
+  uint32_t perPeriod = clock_get_hz(clk_sys) / MOTOR_PWM_FREQ_HZ;
+  uint32_t div = (perPeriod + 65535UL) / 65536UL;
+  if (div < 1) div = 1;
+  _top = (uint16_t)(perPeriod / div - 1);
+  uint slice = pwm_gpio_to_slice_num(pins::MOTOR_PWM);
+  pwm_config cfg = pwm_get_default_config();
+  pwm_config_set_clkdiv_int(&cfg, div);
+  pwm_config_set_wrap(&cfg, _top);
+  pwm_init(slice, &cfg, false);
+  pwm_set_gpio_level(pins::MOTOR_PWM, 0);
+  pwmPinForceLow();                                // the pin stays low until the first duty
+  gpio_set_function(pins::MOTOR_PWM, GPIO_FUNC_PWM);
+  pwm_set_enabled(slice, true);
   _dutyQ10 = 0;
   _hasRequest = false;
   _wasMoving = false;
@@ -65,10 +79,10 @@ void Motor::setDirectionPin(Direction d) {
 }
 
 void Motor::setPower(bool on, uint32_t nowMs) {
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-    if (g_cutLatched) on = false;                  // checked and written with interrupts off: no race with the cut
-    digitalWrite(pins::MOTOR_POWER, on ? HIGH : LOW);
-  }
+  uint32_t irq = save_and_disable_interrupts();
+  if (g_cutLatched) on = false;                    // checked and written with interrupts off: no race with the cut
+  gpio_put(pins::MOTOR_POWER, on);
+  restore_interrupts(irq);
   if (on && !_powered) _poweredAt = nowMs;
   _powered = on;
 }
@@ -76,20 +90,18 @@ void Motor::setPower(bool on, uint32_t nowMs) {
 void Motor::applyDuty() {
   uint16_t counts = 0;
   if (_dutyQ10 != 0) {
-    counts = (uint16_t)(((uint32_t)(_dutyQ10 >> 4) * _top) / 64000UL);   // (permille x 64) x TOP / (1000 x 64)
+    counts = (uint16_t)(((uint64_t)(_dutyQ10 >> 4) * (_top + 1UL)) / 64000UL);   // (permille x 64) x period / (1000 x 64)
     if (counts > _top) counts = _top;
   }
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-    if (counts == 0 || g_cutLatched) {
-      // A fast-PWM compare value of 0 still emits a 1-tick pulse: disconnect the pin instead.
-      TCCR1A &= (uint8_t) ~_BV(COM1B1);
-      PORTB &= (uint8_t) ~_BV(PORTB6);
-      OCR1B = 0;
-    } else {
-      OCR1B = counts;
-      TCCR1A |= _BV(COM1B1);                       // non-inverting output on OC1B
-    }
+  uint32_t irq = save_and_disable_interrupts();
+  if (counts == 0 || g_cutLatched) {
+    pwmPinForceLow();                              // the pin is low at once, not at the end of the period
+    pwm_set_gpio_level(pins::MOTOR_PWM, 0);
+  } else {
+    pwm_set_gpio_level(pins::MOTOR_PWM, counts);   // high while the counter is below the level
+    pwmPinRelease();
   }
+  restore_interrupts(irq);
 }
 
 void Motor::run(Direction dir, uint16_t targetPermille) {
@@ -116,11 +128,10 @@ void Motor::cutPower() {
 }
 
 bool Motor::consumeFailsafeFlag() {
-  bool f;
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-    f = g_failsafe;
-    g_failsafe = false;
-  }
+  uint32_t irq = save_and_disable_interrupts();
+  bool f = g_failsafe;
+  g_failsafe = false;
+  restore_interrupts(irq);
   if (f) cutPower();                               // the interrupt already did it in hardware: align the state
   return f;
 }

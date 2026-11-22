@@ -54,7 +54,7 @@ void DeskController::update(uint32_t nowMs) {
   _motor.update(nowMs);
 
   // Safety checks that apply in every state
-  if (_current.consumeAlert()) {                     // INT6 has already cut the PWM and the driver supply
+  if (_current.consumeAlert()) {                     // the GP7 interrupt has already cut the PWM and the supply
     _motor.cutPower();
     enterFault(FaultCode::Overcurrent, nowMs);
   }

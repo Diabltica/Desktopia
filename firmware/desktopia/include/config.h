@@ -29,7 +29,7 @@
 #define MOTOR_PWM_MIN_PERCENT      10     // lowest duty that still moves the desk (final approach) – tune it
 #endif
 #ifndef MOTOR_PWM_FREQ_HZ
-#define MOTOR_PWM_FREQ_HZ          4000UL   // Timer1 fast PWM. MD10C R3: 20 kHz max; its switching losses grow with the
+#define MOTOR_PWM_FREQ_HZ          4000UL   // RP2040 PWM slice. MD10C R3: 20 kHz max; its switching losses grow with the
                                             // frequency → lower = cooler driver but audible whine (try 4000–10000)
 #endif
 #ifndef MOTOR_SOFT_START_MS
@@ -104,7 +104,7 @@
 #define MOTOR_POWER_IDLE_OFF_MS    300000UL   // motor unused for this long → driver supply cut (5 min)
 #endif
 #ifndef MOTOR_CURRENT_LIMIT_MA
-#define MOTOR_CURRENT_LIMIT_MA     8000   // INA226 alert threshold: PWM and driver supply cut at once (INT6).
+#define MOTOR_CURRENT_LIMIT_MA     8000   // INA226 alert threshold: PWM and driver supply cut at once (GP7 interrupt).
                                           // Measure the normal current (DEBUG_SERIAL logs it) and set ~1.5x its peak
 #endif
 #ifndef CURRENT_MONITOR_REQUIRED
@@ -135,8 +135,11 @@
 #ifndef WRONG_DIRECTION_TRAVEL_MM
 #define WRONG_DIRECTION_TRAVEL_MM  15       // moved this far the wrong way = DIR / SIGN misconfigured
 #endif
-#ifndef WATCHDOG_TIMEOUT
-#define WATCHDOG_TIMEOUT           WDTO_500MS  // hardware watchdog (interrupt cuts the PWM, reset follows)
+#ifndef WATCHDOG_CUT_MS
+#define WATCHDOG_CUT_MS            500      // loop silent this long → a timer interrupt cuts the PWM and the driver supply
+#endif
+#ifndef WATCHDOG_RESET_MS
+#define WATCHDOG_RESET_MS          1000     // loop silent this long → the RP2040 hardware watchdog resets the chip
 #endif
 
 /* ---------------------------------------------------------------------------
@@ -180,6 +183,9 @@
 #ifndef PRESET_EEPROM_ADDR
 #define PRESET_EEPROM_ADDR         0
 #endif
+#ifndef PRESET_EEPROM_SIZE
+#define PRESET_EEPROM_SIZE         256      // EEPROM emulation in one flash sector (written only on a preset save)
+#endif
 
 /* ---------------------------------------------------------------------------
  *  I2C bus (VL53L1CB, INA226)
@@ -187,8 +193,8 @@
 #ifndef I2C_CLOCK_HZ
 #define I2C_CLOCK_HZ               400000UL
 #endif
-#ifndef I2C_TIMEOUT_US
-#define I2C_TIMEOUT_US             25000UL  // Wire timeout: a stuck bus can never block the loop
+#ifndef I2C_TIMEOUT_MS
+#define I2C_TIMEOUT_MS             25       // Wire timeout: a stuck bus can never block the loop
 #endif
 
 /* ---------------------------------------------------------------------------
