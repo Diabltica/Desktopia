@@ -22,10 +22,11 @@ The 3D view shows the JP6 wire link fitted, and the plugs of J1 / J5 / J6 / J7 i
 
 Reading the schematic: connections are drawn as wires. A label only appears where a net leaves one block for another,
 at the MCU pin and at the block it reaches (`TOF_INT`, `SCL`, `SDA`, `Mpwm`, `Mdir`, `nSLEEP`, `nFAULT`, `MOTOR_PWR`,
-`I_ALERT`, `RESET`, `+5V_HMI`, `MOTOR_SW`). `MOTOR_24V` only names a 15 A net. In the H-bridge block, `OUT1` / `OUT2`
-join the two legs to J7, `LS_SRC` joins the low-side sources to the shunts R27 / R28 under U7, and `VM` names the
-bridge supply after JP6. Wires that cross without a dot are not connected: MISO over SCK / MOSI at J2, D+ over D- at
-the USB connector, Vin+ over Vin- at the INA226, DI over DE at U5.
+`I_ALERT`, `+5V_HMI`, `MOTOR_SW`). `D_+` / `D_-` only name the USB pair, `MOTOR_24V` a 15 A net. In the H-bridge
+block, `OUT1` / `OUT2` join the two legs to J7, `LS_SRC` joins the low-side sources to the shunts R27 / R28 under U7,
+and `VM` names the bridge supply after JP6. The RP2040 decoupling capacitors sit in two rows at the top of the MCU
+block, each on the supply it decouples (`+3V3` / `+1V1`); the note under the RP2040 says which pin each one belongs to.
+Wires that cross without a dot are not connected: D+ over D- before the RP2040, Vin+ over Vin- at the INA226.
 
 Colours: each block has its own background and title colour (24 V input and 5 V supply, MCU, height sensor, HMI link,
 motor supply, H-bridge). Wires and labels take the colour of their net class, with a legend on the sheet, left of the
@@ -34,13 +35,15 @@ MCU:
 | Colour | Net class | Nets |
 |---|---|---|
 | red, thick | `Power_24V` | `+24V`, `MOTOR_24V`, `MOTOR_SW`, `VM`, `OUT1` / `OUT2`, `LS_SRC`: the 15 A path |
-| orange | `Power_5V` | `+5V`, `+5V_HMI` |
-| purple | `Power_2V8` | `+2V8` |
+| orange | `Power_5V` | `+5V`, `+5V_HMI`, USB-C VBUS before D5 |
+| purple | `Power_3V3` | `+3V3` (U9: RP2040, flash, RS-485 transceiver, INA226) |
+| olive | `Power_2V8` | `+2V8` (height sensor and its side of Q1 / Q2 / Q3) |
+| pink | `Power_1V1` | `+1V1` (RP2040 core, from its internal regulator) |
 | grey | `GND` | `GND` |
 | blue | `Motor_command` | `Mdir`, `Mpwm`, `nSLEEP`, `nFAULT`, `MOTOR_PWR`, `I_ALERT`, and PH / EN / nSLEEP / nFAULT after JP2-JP5 |
 | magenta | `Gate_drive` | the four gates of the H-bridge |
 | brown | `Current_sense` | Kelvin lines: Vin+ / Vin- of the INA226, SP / SN of the DRV8701 |
-| teal | `Buses` | I2C (both sides of Q1 / Q2), ToF interrupt, RS-485, USB D+ / D- |
+| teal | `Buses` | I2C (both sides of Q1 / Q2), ToF interrupt, RS-485, USB D+ / D-, QSPI flash |
 | green | `Default` | everything else |
 | green (PCB only) | `HV_signal`, `Switch_node` | 24-38 V low-current nets (charge pump, bootstrap, Q5 gate), TPS5430 switch node |
 
@@ -72,15 +75,15 @@ sets the PCB track width, clearance and via: see *PCB rules*.
 |---|---|---|
 | 24 V input | J1 (5.08 mm pluggable terminal, 15 A), D2 SMBJ28A (600 W TVS), C6 (100 µF 50 V bulk), C5 (10 µF 50 V ceramic), TP5 | J1 carries the full motor current. D2 clamps motor and hot-plug spikes below the 40 V absolute maximum of U2 and U6 |
 | 24 V → 5 V | U2 TPS5430 (3 A buck), L1 22 µH (1.8 A, shielded), D1 SS34 (3 A), C3 10 nF (boot), C7 + C8 (2 × 47 µF ceramic), R4 / R7 (10k / 3.3k → 4.92 V), C4 / R9 / C12 / C11 (compensation) | 1.5 A available. ENA left open, see *Known issues* |
-| Motor current | R23 2 mΩ 3 W shunt, U6 INA226 (I2C 0x40), C22, R25, C23 | ±41 A full scale; alert on PE6 / INT6 (R25 4.7k pull-up, C23 100 pF against motor spikes). The firmware cuts the PWM and Q5 on an alert |
-| Motor supply switch | Q5 IPD90P04P4-05 (P-MOSFET, −40 V, 4.7 mΩ, TO-252), Q4 BSS138 (gate driver), R21 / R20 100k (gate divider), R22 10k (pull-down), D3 BZT52C15 (V<sub>GS</sub> clamp), C21 100 nF 50 V (soft start), D4 SS34, TP13 | no relay. `MOTOR_PWR` (PD7) high → Q4 on → V<sub>GS</sub> −12 V → J5 powered. R22 keeps it off while the MCU is in reset or blank. See *Power* |
-| MCU | U4 ATmega32U4 @ 16 MHz (Y1, C15 / C16), RST1 reset button, R12 reset pull-up | Caterina bootloader, USB. HWB (PE2) is not connected: the Leonardo fuses leave HWBE off |
-| USB | J3 USB-C (G-Switch GT-USB-7010ASV), R13 / R15 22 Ω, R18 / R19 5.1k on CC | VBUS only goes to the MCU's VBUS sense pin: USB does **not** power the board |
-| ISP | J2 2×3 header (not assembled) | blank chip: bootloader + fuses with a USBasp |
-| Height sensor | U3 VL53L1CB, U1 XC6206P282 (2.8 V LDO), Q1 / Q2 / Q3 BSS138 (5 V ↔ 2.8 V level shifters: SCL, SDA, GPIO1), R2 / R6 / R8 / R11, R10 | XSHUT tied high (R8). GPIO1 (data ready) reaches PB4 / PCINT4 as `TOF_INT` |
+| Motor current | R23 2 mΩ 3 W shunt, U6 INA226 (I2C 0x40, supplied at 3.3 V), C22, R25, C23 | ±41 A full scale; alert on GP7 (R25 4.7k pull-up to +3V3, C23 100 pF against motor spikes). The firmware cuts the PWM and Q5 on an alert |
+| Motor supply switch | Q5 IPD90P04P4-05 (P-MOSFET, −40 V, 4.7 mΩ, TO-252), Q4 BSS138 (gate driver), R21 / R20 100k (gate divider), R22 10k (pull-down), D3 BZT52C15 (V<sub>GS</sub> clamp), C21 100 nF 50 V (soft start), D4 SS34, TP13 | no relay. `MOTOR_PWR` (GP12) high → Q4 on → V<sub>GS</sub> −12 V → J5 powered. R22 keeps it off while the MCU is in reset or blank. See *Power* |
+| MCU | U4 RP2040 (QFN-56), U8 W25Q128JVSIQ (16 MB QSPI flash), Y1 12 MHz (C15 / C16 33 pF, R32 1k), decoupling C13 / C14 / C17 / C19 / C33-C41, BOOT1 + R31 (BOOTSEL), RST1 + R12 (RUN), TP4 / TP7 (SWD), TP11 (RUN) | the standard Raspberry Pi minimal design, as on the HMI board. USB bootloader in ROM: BOOT1 held at reset → USB drive. 3.3 V I/O, none of them 5 V tolerant |
+| 3.3 V | U9 XC6206P332MR (from +5V), C42 / C43, TP10 | RP2040, flash, RS-485 transceiver, INA226: about 50 mA |
+| USB | J3 USB-C (G-Switch GT-USB-7010ASV), R13 / R15 22 Ω, R18 / R19 5.1k on CC, D5 SS34 | flashing, debug logs and bench power: VBUS feeds +5V through D5 (logic, sensor and HMI board, not the motor). See *Power* |
+| Height sensor | U3 VL53L1CB, U1 XC6206P282 (2.8 V LDO), Q1 / Q2 / Q3 BSS138 (3.3 V ↔ 2.8 V level shifters: SCL, SDA, GPIO1), R1 / R5 / R10 (3.3 V side), R2 / R6 / R11 (2.8 V side), R8, TP15-TP17 | XSHUT tied high (R8). GPIO1 (data ready) reaches GP6 as `TOF_INT` through Q3. See *I2C bus* |
 | Motor command | J5 (switched 24 V out, `MOTOR_SW`), J6 (DIR, PWM, GND), R26 / R24 (10k pull-downs on PWM / DIR) | DIR / PWM go to the on-board H-bridge, and to J6 for an external driver (Cytron MD10C R3) when the bridge is bypassed. The pull-downs keep the motor stopped while the MCU is in reset, in the bootloader or blank |
-| H-bridge | U7 DRV8701E (gate driver, PH/EN), Q6 / Q7 / Q8 / Q9 BSC028N06NS (60 V, 2.8 mΩ, SuperSO8), C24 / C25 (2 × 470 µF 50 V low impedance), C26 / C27 (10 µF 50 V), C28 (100 nF, VM), C29 (VCP), C30 (charge pump), C31 / C32 (AVDD / DVDD), R27 / R28 (2 × 2 mΩ 3 W shunt, Kelvin), R29 / R30 (VREF divider), TP14 (SO), J7 (motor), JP2-JP5 (solder jumpers), JP6 (wire link) | PH = `Mdir`, EN = `Mpwm` (up to 100 kHz, 25 kHz planned). EN low = brake. `nSLEEP` (PB5) low = bridge off, `nFAULT` (PB7) = fault. Current limited cycle by cycle at about 14.6 A. See *H-bridge* |
-| HMI link | J4 RJ11 6P6C, U5 SP485EEN (RS-485), F1 500 mA PTC, R14 / R17 4.7k bias, R16 120 Ω (not assembled), C18 / C20 | see the link section of the firmware README |
+| H-bridge | U7 DRV8701E (gate driver, PH/EN), Q6 / Q7 / Q8 / Q9 BSC028N06NS (60 V, 2.8 mΩ, SuperSO8), C24 / C25 (2 × 470 µF 50 V low impedance), C26 / C27 (10 µF 50 V), C28 (100 nF, VM), C29 (VCP), C30 (charge pump), C31 / C32 (AVDD / DVDD), R27 / R28 (2 × 2 mΩ 3 W shunt, Kelvin), R29 / R30 (VREF divider), TP14 (SO), J7 (motor), JP2-JP5 (solder jumpers), JP6 (wire link) | PH = `Mdir`, EN = `Mpwm` (up to 100 kHz, 25 kHz planned). EN low = brake. `nSLEEP` (GP10) low = bridge off, `nFAULT` (GP11) = fault. Current limited cycle by cycle at about 14.6 A. See *H-bridge* |
+| HMI link | J4 RJ11 6P6C, U5 SP3485EN (3.3 V RS-485, as on the HMI board), F1 500 mA PTC, R14 / R17 4.7k bias (to +3V3 / GND), R16 120 Ω (not assembled), C18 / C20 | UART0: GP28 TX → DI, GP17 RX ← RO, GP18 DE + /RE. See the link section of the firmware README |
 | Power LED | LED1, R3 (470 Ω, 6 mA), JP1 solder jumper | LED off until JP1 is bridged |
 
 ## Connectors
@@ -88,11 +91,10 @@ sets the PCB track width, clearance and via: see *PCB rules*.
 | Ref | Function | Pin-out |
 |---|---|---|
 | J1 | 24 V supply input | 1 = +24 V, 2 = GND |
-| J2 | ISP | 1 = MISO, 2 = +5 V, 3 = SCK, 4 = MOSI, 5 = RESET, 6 = GND |
-| J3 | USB-C: flashing and debug logs | USB 2.0 full speed |
+| J3 | USB-C: flashing, debug logs, bench power for the logic | USB 2.0 full speed |
 | J4 | RJ11 cord to the HMI board | 1 = +5 V, 2 = GND, 3 = A, 4 = B, 5 = GND, 6 = +5 V |
 | J5 | supply out to an external motor driver (after the shunt and Q5) | 1 = MOTOR_SW, 2 = GND |
-| J6 | external motor driver command | 1 = DIR (`Mdir`, PC6), 2 = PWM (`Mpwm`, PB6 / OC1B), 3 = GND (the driver's logic ground) |
+| J6 | external motor driver command | 1 = DIR (`Mdir`, GP9), 2 = PWM (`Mpwm`, GP8), 3 = GND (the driver's logic ground). 3.3 V logic: the MD10C R3 accepts it |
 | J7 | motor, from the on-board H-bridge | 1 = OUT1 (Q6 / Q7), 2 = OUT2 (Q8 / Q9) |
 
 The J4 pin-out is symmetric, so a reversed telephone cord only swaps A and B, never +5 V and GND. The HMI firmware
@@ -146,12 +148,23 @@ handles that easily. On the PCB, this current flows from J6 pin 3 to J5 pin 2 (s
   fuse**: if the driver itself fails short, Q5 opens too slowly to protect it. Keep a fuse (15 A) in the 24 V supply
   cable. D4 clamps J5 when the driver's cable inductance pulls MOTOR_SW below ground at turn-off. The P-MOSFET's body
   diode lets the motor's braking energy flow back to C6 when Q5 is off.
-- 5 V rail (TPS5430): MCU, transceiver, INA226, and the HMI board through F1 (500 mA PTC). L1 (1.8 A saturation) and
-  D1 (3 A) allow 1.5 A, about twice the worst case (HMI at the PTC limit + this board).
+- 5 V rail (TPS5430): the 3.3 V and 2.8 V regulators, the VREF divider of U7, and the HMI board through F1 (500 mA
+  PTC). L1 (1.8 A saturation) and D1 (3 A) allow 1.5 A, about twice the worst case (HMI at the PTC limit + this board).
+- USB-C (bench power): VBUS feeds +5V through D5 (SS34), so the board runs from a PC or a phone charger without 24 V:
+  RP2040, sensor, INA226, transceiver and the HMI board through the cord (about 250 mA at most). The motor cannot
+  move: Q5 has no 24 V to switch and the DRV8701 stays under its 5.9 V undervoltage lockout, so a move ends in a
+  fault. D5 keeps the board's 5 V off the PC. With 24 V present the TPS5430 (4.92 V) supplies the rail: D5 only
+  conducts when VBUS is over about 5.15 V. Without 24 V, +5V also leaks back into the 24 V side through the TPS5430
+  high-side body diode (about 4.3 V on +24V, under its UVLO): it only charges C5 / C6 and feeds the INA226 bus input,
+  a few mA. The previous revision tied VBUS straight to +5V, so a PC and the TPS5430 fed each other.
+- 3.3 V rail (U9 XC6206P332, 250 mA): RP2040 (with its internal 1.1 V core regulator, `+1V1`), flash, RS-485
+  transceiver and INA226, about 50 mA: 0.08 W in U9. R12 (RUN), R14 (RS-485 bias), R25 (`I_ALERT`) and the 3.3 V
+  side of the I2C level shifters (R1 / R5 / R10) pull up to it.
 - The 5 V output uses ceramic capacitors, so the TPS5430 needs the external compensation of TI's SLVA237 (C4, R9, C12,
   C11). A model of the loop (TPS5430 type III network + LC filter + this network) gives a 14 to 27 kHz crossover and
   more than 60° of phase margin from 0.1 to 1.5 A, with ±25 % on the output capacitance.
-- 2.8 V rail (XC6206P282, ±2 %): VL53L1CB, its pull-ups and the gates of Q1 / Q2. 2.8 V is the sensor's typical
+- 2.8 V rail (XC6206P282, ±2 %): VL53L1CB, its pull-ups R2 / R6 / R11 and the gates of Q1 / Q2 / Q3. 2.8 V is the
+  sensor's typical
   supply (recommended 2.6 to 3.5 V, 3.6 V absolute maximum, datasheet DS12385). That leaves 0.7 V of headroom under the
   maximum; 3.3 V would only leave 0.13 V in the worst case.
 
@@ -195,11 +208,11 @@ for 15 A and a PWM above hearing (25 kHz), at the lowest part cost.
   (current × drive time), so the INA226 may not trip: the firmware's stall fault (duty up, height not moving) stops
   it. The DRV8701 also keeps its V<sub>DS</sub> monitor (about 1 V across a driven FET for 4.5 µs → all FETs off,
   retry after 3 ms, `nFAULT` low): with 2.8 mΩ FETs, a short-circuit protection.
-- **Sleep and faults**: `nSLEEP` (PB5, D9) has an internal pull-down (115 kΩ typical), so the bridge stays off, FETs
+- **Sleep and faults**: `nSLEEP` (GP10) has an internal pull-down (115 kΩ typical), so the bridge stays off, FETs
   held off, while the MCU is in reset, in the bootloader or blank. TI asks for nSLEEP to go high only once VM is up:
   set it after `MOTOR_SW` (the firmware already waits 100 ms after Q5), wait 1 ms (t<sub>WAKE</sub>), then start the
-  PWM; set it low before Q5 opens. `nFAULT` (PB7, D11, PCINT7) is open drain with no resistor on the board: enable the
-  MCU pull-up (20 to 50 kΩ, TI asks ≥ 10 kΩ). It goes low on VM or charge pump undervoltage, overcurrent, pre-driver
+  PWM; set it low before Q5 opens. `nFAULT` (GP11) is open drain with no resistor on the board: enable the
+  RP2040 pull-up (50 to 80 kΩ, TI asks ≥ 10 kΩ). It goes low on VM or charge pump undervoltage, overcurrent, pre-driver
   fault and overtemperature.
 - **Bulk**: at 15 A and 50 % duty the input capacitors carry I × √(D (1 − D)) ≈ 7.5 A RMS, far more than C6 (general
   purpose) can. C24 / C25 (2 × 470 µF 50 V, Rubycon ZLJ low impedance series, 10 × 20 mm radial, C2902875) and
@@ -209,34 +222,29 @@ for 15 A and a PWM above hearing (25 kHz), at the lowest part cost.
 - **Bypass**: to drive the motor with an external driver on J5 / J6 instead, cut JP2-JP5 (bridged solder jumpers on PH,
   EN, nSLEEP, nFAULT) and the JP6 wire link (VM). The bridge is then disconnected, logic and power: a dead DRV8701 or a
   shorted FET cannot load DIR / PWM or `MOTOR_SW`. To bring it back: solder blobs on JP2-JP5, a wire on JP6. JP6 is two
-  1.7 mm holes 6 mm apart for a 1.5 mm² wire (15 A), soldered by hand like U4: it is not in the BOM, so the bridge has
+  1.7 mm holes 6 mm apart for a 1.5 mm² wire (15 A), soldered by hand: it is not in the BOM, so the bridge has
   no VM until it is fitted.
 
 ## I2C bus
 
 | Device | Address | Side |
 |---|---|---|
-| INA226 (U6) | 0x40 (A0 = A1 = GND) | 5 V |
+| INA226 (U6) | 0x40 (A0 = A1 = GND) | 3.3 V (supplied at 3.3 V) |
 | VL53L1CB (U3) | 0x29 (0x52 in 8-bit form) | 2.8 V, behind Q1 / Q2 |
 
-SDA = PD1, SCL = PD0. Pull-ups: 3.3k R1 (SCL) / R5 (SDA) to 5 V, and R2 / R6 to 2.8 V on the sensor side of Q1 / Q2.
-Q1 / Q2 are the classic MOSFET level shifter (NXP AN10441): gate on +2V8, source on the sensor side, drain on the 5 V
-side. The BSS138 (Vgs(th) 1.5 V max) turns fully on with 2.8 V on its gate, so a low from the MCU reaches the sensor at
-about 0.2 V, under its 0.6 V VIL. A 2N7002 (Vgs(th) up to 2.5 V) would only pass it through its body diode, around 0.8 V.
-At 400 kHz the 3.3k pull-ups give about 220 ns of rise time, under the 300 ns of the fast-mode specification (ST
-suggests 3.6k up to 90 pF).
+SDA = GP4, SCL = GP5 (I2C0). Pull-ups: 3.3k R1 (SCL) / R5 (SDA) to +3V3 on the RP2040 / INA226 side, and R2 / R6
+to +2V8 on the sensor side of Q1 / Q2. Q1 / Q2 are the classic MOSFET level shifter (NXP AN10441): gate on +2V8,
+source on the sensor side, drain on the 3.3 V side. The BSS138 (V<sub>GS(th)</sub> 1.5 V max) turns fully on with
+2.8 V on its gate, so a low from the RP2040 or the INA226 reaches the sensor at about 0.2 V, under its 0.6 V V<sub>IL</sub>.
+A 2N7002 (V<sub>GS(th)</sub> up to 2.5 V) would only pass it through its body diode, around 0.8 V. On the 3.3 V side
+the high level has about 1 V of margin over the RP2040 (V<sub>IH</sub> 2.0 V) and the INA226 (0.7 × V<sub>S</sub> =
+2.31 V). At 400 kHz the 3.3k pull-ups give about 220 ns of rise time, under the 300 ns of the fast-mode
+specification (ST suggests 3.6k up to 90 pF). The RP2040's own pull-ups (50 to 80 kΩ, enabled by the Wire library)
+stay on, in parallel with R1 / R5.
 
 Q3 is the same circuit on the VL53L1CB GPIO1 (data-ready interrupt, R11 10k pull-up to 2.8 V). It gives `TOF_INT` on
-PB4 (D8, pin-change interrupt PCINT4), with R10 10k pull-up to 5 V. The MCU sees a full 5 V high level instead of
-2.8 V, which is under the ~3 V input threshold of the ATmega. The firmware polls the sensor over I2C and does not use
-`TOF_INT` yet.
-
-The ATmega32U4 has five external interrupts, all taken. INT0 / INT1 (PD0 / PD1) are the I2C and INT2 / INT3
-(PD2 / PD3) the RS-485 UART; both are fixed by the hardware. INT6 (PE6) is kept for the INA226 alert (`I_ALERT`).
-`TOF_INT` therefore uses a pin-change interrupt. It is also a hardware interrupt, with the same latency, but
-`attachInterrupt()` does not cover it: configure PCICR / PCMSK0, or simply read PB4. PB5 is `nSLEEP` and PB7 `nFAULT`
-(its PCINT7 can flag a bridge fault). PB0 is free but is the RX LED pin of the Arduino core (`board = micro`), which drives
-it on USB traffic.
+GP6, with R10 10k pull-up to +3V3. The firmware polls the sensor over I2C and does not use `TOF_INT` yet. Any RP2040
+GPIO takes an interrupt (`attachInterrupt()`).
 The INA226 settings are R<sub>shunt</sub> = 2 mΩ, current LSB = 1.25 mA, calibration = 2048. It reads 0.34 W in the
 shunt at 13 A.
 
@@ -244,13 +252,15 @@ shunt at 13 A.
 
 | TP | Net | TP | Net |
 |---|---|---|---|
-| TP1 | +5V | TP8 | VL53L1CB XSHUT |
-| TP2 | +2V8 | TP9 | `TOF_INT` (5 V side) |
-| TP3 | SCL (5 V side) | TP10 | GPIO1 on the 2.8 V side |
-| TP4 | SCL on the 2.8 V side | TP11 | RESET |
-| TP5 | +24V | TP12 | GND |
-| TP6 | SDA (5 V side) | TP13 | MOTOR_SW (driver supply, after Q5) |
-| TP7 | SDA on the 2.8 V side | TP14 | SO of U7: bridge current, V<sub>OFF</sub> + 80 mV/A |
+| TP1 | +5V | TP10 | +3V3 |
+| TP2 | +2V8 | TP11 | RUN (ground it to reset) |
+| TP3 | SCL (3.3 V side) | TP12 | GND |
+| TP4 | SWCLK (RP2040 SWD) | TP13 | MOTOR_SW (driver supply, after Q5) |
+| TP5 | +24V | TP14 | SO of U7: bridge current, V<sub>OFF</sub> + 80 mV/A |
+| TP6 | SDA (3.3 V side) | TP15 | SCL on the 2.8 V side |
+| TP7 | SWDIO (RP2040 SWD) | TP16 | SDA on the 2.8 V side |
+| TP8 | VL53L1CB XSHUT | TP17 | GPIO1 on the 2.8 V side |
+| TP9 | `TOF_INT` (3.3 V side) | | |
 
 ## Assembly (JLCPCB)
 
@@ -259,8 +269,8 @@ Every assembled part has its LCSC number in the `LCSC` and `jlcpcb PartNumber` f
 PCBA.
 
 - Extended: C6 (100 µF bulk), L1, F1, J3 (USB-C), J1 / J5 (one part number), J7, J4, J6, Q5 (motor supply switch),
-  R23 / R27 / R28 (2 mΩ 3 W shunt, C154685, one part number), U1 (2.8 V LDO), U3 (VL53L1CB), U6 (INA226), U7 (DRV8701ERGER, C90964), Q6-Q9 (BSC028N06NS, C148250, one part
-  number), C24 / C25 (Rubycon 50ZLJ470M10X20, C2902875, radial: through-hole like the terminals). JLCPCB has no Basic
+  R23 / R27 / R28 (2 mΩ 3 W shunt, C154685, one part number), U1 (2.8 V LDO), U3 (VL53L1CB), U4 (RP2040, C2040),
+  U6 (INA226), U7 (DRV8701ERGER, C90964), Q6-Q9 (BSC028N06NS, C148250, one part number), C24 / C25 (Rubycon 50ZLJ470M10X20, C2902875, radial: through-hole like the terminals). JLCPCB has no Basic
   power inductor, electrolytic capacitor, fuse, connector, shunt, 2.8 V regulator, gate driver or power MOSFET. Q5
   (IPD90P04P4-05, C536914) cost $1.94 with 469 in stock in October 2026: check the stock before ordering. Any −40 V
   P-MOSFET in TO-252 with R<sub>DS(on)</sub> ≤ 10 mΩ at −10 V fits the footprint. Any 60 V N-MOSFET in SuperSO8 / 5 × 6
@@ -268,10 +278,19 @@ PCBA.
   example): check the gate charge in the maker's own datasheet, look-alikes of the same name may have twice as much.
 - Preferred: D2 (TVS), D3 (Zener), Q1 / Q2 / Q3 / Q4 (BSS138). Everything else is Basic: the H-bridge passives reuse
   part numbers already on the board (C26 / C27 = C5, C28 / C30 = C21, C29 / C31 / C32 = C1, R29 = R24 (10k),
-  R30 = R7 (3.3k)).
-- Not in the BOM: U4 (the ATmega32U4 has *Exclude from BOM* set: solder it yourself or clear the flag), J2 (ISP
-  header), R16 (termination), JP1-JP6 (solder jumpers and the JP6 wire link), the test points, the mounting holes
-  H1-H3 (M2), and the plugs of J1 / J5 / J6 / J7 (see *Connectors*).
+  R30 = R7 (3.3k)), and the MCU block those of the HMI board: U8 W25Q128JVSIQ (C97521), U9 XC6206P332MR (C5446),
+  Y1 12 MHz (C9002), C15 / C16 33 pF (C1562), R31 / R32 1k (C11702), U5 SP3485EN (C8963); D5 = D1 (SS34), BOOT1 = RST1,
+  the decoupling = C1 / C10 (1 µF, 100 nF).
+- Not in the BOM: R16 (termination), JP1-JP6 (solder jumpers and the JP6 wire link), the test points, the mounting
+  holes H1-H4 (M2), and the plugs of J1 / J5 / J6 / J7 (see *Connectors*).
+
+The MCU went from the ATmega32U4 to the RP2040 in November 2026: the ATmega32U4-AU (C44854) was out of stock at JLCPCB
+and LCSC. The RP2040 (QFN-56, 0.4 mm pitch: JLCPCB places it, also in Economic PCBA) is one Extended part number like
+the ATmega was, and costs a fraction of it; its flash, crystal and LDO are Basic. The board went to 3.3 V logic for
+it: U5 SP485EEN (5 V) → SP3485EN, the INA226 supply and the `I_ALERT`, RUN and RS-485 bias pull-ups → +3V3, and
+the 3.3 V side of the level shifters Q1-Q3 (R1 / R5 / R10) → +3V3. Running the whole I2C bus at 2.8 V without the
+shifters would also work, with about 0.5 V of margin on the high level instead of 1 V: the shifters stay. The ISP
+header J2 went too: the RP2040 boots from USB. The firmware is the same, on the arduino-pico core of the HMI board (see the firmware README).
 
 The October 2026 cost pass went from 12 Extended part numbers to 9 (J3 aside), about $9 less of loading fees per
 order:
@@ -338,6 +357,8 @@ IPC-2221B. They live in three places:
 | `Motor_command` | 0.25 / 0.15 mm | 0.20 mm | 0.6 / 0.3 mm | 0.9 / 1.2 A | 0.7 / 1.0 A |
 | `Current_sense` | 0.25 / 0.15 mm, pair gap 0.25 mm | 0.25 mm | 0.6 / 0.3 mm | 0.9 / 1.2 A | 0.7 / 1.0 A |
 | `Power_2V8` | 0.3 / 0.2 mm | 0.20 mm | 0.6 / 0.3 mm | 1.0 / 1.4 A | 0.7 / 1.0 A |
+| `Power_3V3` | 0.3 / 0.2 mm | 0.20 mm | 0.6 / 0.3 mm | 1.0 / 1.4 A | 0.7 / 1.0 A |
+| `Power_1V1` | 0.3 / 0.2 mm | 0.20 mm | 0.6 / 0.3 mm | 1.0 / 1.4 A | 0.7 / 1.0 A |
 | `HV_signal` | 0.3 / 0.2 mm | 0.25 mm | 0.6 / 0.3 mm | 1.0 / 1.4 A | 0.7 / 1.0 A |
 | `Gate_drive` | 0.4 / 0.25 mm | 0.25 mm | 0.6 / 0.3 mm | 1.2 / 1.7 A | 0.7 / 1.0 A |
 | `Power_5V` | 0.5 / 0.3 mm | 0.20 mm | 0.8 / 0.4 mm | 1.4 / 2.0 A | 0.9 / 1.2 A |
@@ -365,7 +386,8 @@ IPC-2221B. They live in three places:
 - **Exceptions** (custom rules):
   - Pads of one footprint keep the maker's land pattern, at 0.15 mm at least. This covers the INA226 pins, the
     DRV8701 pins next to its exposed pad, and the USB-C GND pads next to the connector's own locating holes.
-  - Tracks inside the courtyard of U6, U7 or J3 may pass 0.15 mm from other copper, to leave their 0.5 mm pitch pins.
+  - Tracks inside the courtyard of U4, U6, U7 or J3 may pass 0.15 mm from other copper, to leave their 0.5 mm pitch
+    pins and the 0.4 mm pitch of the RP2040 (route 0.2 mm tracks into its 0.2 mm pads).
 - **Other JLCPCB rules** in the file:
   - holes 0.2 to 6.3 mm, NPTH 0.5 mm at least;
   - PTH annular ring 0.18 mm (0.25 mm recommended); the 0.2 mm thermal vias of U2 / U7 count as vias;
@@ -379,11 +401,22 @@ IPC-2221B. They live in three places:
 
 ## PCB: what to do before ordering
 
-The PCB has every part (*Update PCB from Schematic* of November 11, 2026, with the pluggable headers), but nothing is
-routed. Run *Update PCB from Schematic* once more: it renames the H-bridge supply `Net-(JP6-B)` → `VM`, which puts it
-in `Power_24V`, and adds the mounting hole H4, which the PCB does not have yet (DRC schematic parity, November 11,
-2026). Place J1 / J5 / J6 / J7 again on the board edge. For the
-layout:
+The PCB is still the ATmega32U4 version (parts of November 11, 2026, pluggable headers, routing started). Run *Update
+PCB from Schematic* (F8) with *Update footprints* ticked: it changes U4 from the TQFP-44 to the RP2040's QFN-56 and Y1's
+value, adds U8 (flash), U9 (3.3 V LDO), D5, BOOT1, R31 / R32, C33-C43 and the new TP4 / TP7 / TP10 (SWD, +3V3),
+removes J2, renames the sensor-side test points TP4 / TP7 / TP10 to TP15 / TP16 / TP17, renames the H-bridge supply
+`Net-(JP6-B)` → `VM`
+(class `Power_24V`) and adds the mounting hole H4. Place the new parts, and J1 / J5 / J6 / J7 again on the board edge.
+The tracks that went to the ATmega's pads, J2 or the old MCU parts stay behind as unconnected copper: the DRC lists
+them, delete or reroute them. For the layout:
+
+- RP2040 (the Raspberry Pi hardware design guide, as on the HMI board): one decoupling capacitor next to each supply
+  pin (the note under the RP2040 on the schematic gives the pairs), C19 / C41 (1 µF) at VREG_VIN / VREG_VOUT, a solid
+  ground under the QFN with the exposed pad on vias, the crystal (Y1, C15 / C16, R32) and the flash (U8, C39) close to
+  their pins, the QSPI lines short. Route USB D+ / D- as a pair, R13 / R15 near the RP2040. Keep BOOT1 and RST1
+  reachable with the board mounted.
+- Keep the RP2040 block away from the H-bridge and its switching nodes, and the I2C lines away from `OUT1` /
+  `OUT2`.
 
 - Place C5 right against VIN / GND of U2 (TI asks for a ceramic within 1 mm). Put D2 and C6 next to J1.
 - Keep the buck loop tight: C7 / C8 next to L1 and the ground of D1. Put C4, C11, R9 and C12 next to the VSENSE pin
@@ -395,7 +428,7 @@ layout:
 - Put the four headers on the board edge, mating face outwards, with room to pull each plug and to reach its screws.
   Keep J7 away from J1 / J5 and mark them on the silkscreen (24 V IN, 24 V OUT, MOTOR, DIR / PWM / GND).
 - Put J6 next to J5 and connect J6 pin 3 to J5 pin 2 through the ground pour by a short, wide path, away from the
-  ground of the MCU and the sensor: part of the motor current returns that way.
+  ground of the RP2040 and the sensor: part of the motor current returns that way.
 - Give J1 → R23 → Q5 → J5 and the GND return copper for 15 A (see *PCB rules*): pours, 8.3 mm wide on one layer or
   3.2 mm on both layers at once, in 1 oz copper.
   Give the drain tab of Q5 a few cm² of copper. Keep D4 between J5 pin 1 and its ground pin, and C21, D3, R21 close
@@ -435,7 +468,8 @@ layout:
 2. **Barrel jack (fixed).** The barrel jack was rated 1.5 A / 12 V and carried the motor current. It is replaced by
    the J1 terminal (now a pluggable one, 15 A).
 3. **`Mpwm` and `Mdir` pull-downs (fixed in the schematic).** These lines floated during a reset, the bootloader or an
-   ISP flash, and the desk could start moving. R26 / R24 (10 kΩ) now hold them low.
+   ISP flash, and the desk could start moving. R26 / R24 (10 kΩ) now hold them low. The RP2040 also starts with
+   every GPIO an input with a pull-down.
 4. **Current limit to tune.** The INA226 alert threshold (`MOTOR_CURRENT_LIMIT_MA` in the firmware, 8 A by default)
    is a guess. Measure the real supply current with the `desktopia_debug` build, which logs it during a loaded climb,
    then set the limit at about 1.5 × the peak.
@@ -446,8 +480,14 @@ layout:
    asks for the 2V8 mode: set bit 0 of 0x2E (I2C) and 0x2F (GPIO1) after `VL53L1X_SensorInit()`. The original design
    had the same mismatch.
 7. **On-board H-bridge (schematic only, not built, not tested).** The firmware still targets the MD10C: it does not
-   drive `nSLEEP` (PB5), so the bridge stays asleep, does not read `nFAULT` (PB7), and refuses a PWM above 20 kHz
+   drive `nSLEEP` (GP10), so the bridge stays asleep, does not read `nFAULT` (GP11), and refuses a PWM above 20 kHz
    (`static_assert` in `motor.cpp`). To do: `nSLEEP` high after `MOTOR_SW` and 1 ms before the first PWM, low before
-   Q5 opens; `INPUT_PULLUP` on PB7 and a fault on its falling edge; `MOTOR_PWM_FREQ_HZ` = 25000 (Timer1 TOP = 639).
+   Q5 opens; `INPUT_PULLUP` on GP11 and a fault on its falling edge; `MOTOR_PWM_FREQ_HZ` = 25000 (5000 counts per
+   period at 125 MHz).
    With the bridge bypassed (JP2-JP6 cut) the firmware works as before. On the first board, also measure
    V<sub>OFF</sub> on TP14 to know the real current limit (see *H-bridge*).
+8. **USB VBUS on +5V (fixed in the schematic).** The USB-C VBUS pins and the ATmega's VBUS sense pin were on the +5V
+   net, although this README said that USB did not power the board: a PC and the TPS5430 fed each other. VBUS now
+   goes through D5, and the RP2040 does not need it.
+9. **MCU: ATmega32U4 → RP2040 (November 2026)**, see *Assembly*. Schematic checked by ERC (no new violation) and by
+   netlist, pin by pin; the PCB still has to be updated and laid out.
