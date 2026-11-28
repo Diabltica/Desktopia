@@ -27,6 +27,8 @@ fp-info-cache
 # Exported BOM files
 *.xml
 *.csv
+# except the LCSC cart of both boards (hand-soldered parts, uploaded to LCSC's BOM Tool)
+!hardware/lcsc_cart.csv
 
 # KiCad 10 local history (a git repository in each project folder)
 .history/

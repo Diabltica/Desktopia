@@ -5369,6 +5369,17 @@
 		)
 		(uuid "96ff9fdd-6a20-49ab-ad1d-6864abc3d8cb")
 	)
+	(text "Assembly (README): JLCPCB Economic PCBA, bottom side, 0402 minimum.\nSW2-SW6 (Kailh Choc hot-swap sockets) are out of the BOM and position files:\nout of stock at JLCPCB and LCSC, solder them by hand."
+		(exclude_from_sim no)
+		(at 16.51 220.98 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left top)
+		)
+		(uuid "a4553d59-d254-4950-813a-d9c6174b0862")
+	)
 	(text "Link to the motherboard: RS-485 over an RJ11 cord"
 		(exclude_from_sim no)
 		(at 261.62 24.13 0)
@@ -9401,9 +9412,9 @@
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
-		(in_pos_files yes)
+		(in_pos_files no)
 		(dnp no)
 		(uuid "36193a9f-0eb1-4d0a-bf0a-b546c00bf43e")
 		(property "Reference" "SW2"
@@ -9735,9 +9746,9 @@
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
-		(in_pos_files yes)
+		(in_pos_files no)
 		(dnp no)
 		(uuid "4cb8be41-19a8-412c-aacd-1454b17fd6c3")
 		(property "Reference" "SW3"
@@ -9838,9 +9849,9 @@
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
-		(in_pos_files yes)
+		(in_pos_files no)
 		(dnp no)
 		(uuid "50ac875e-5103-4525-ad83-dc6d1623654d")
 		(property "Reference" "SW5"
@@ -12493,9 +12504,9 @@
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
-		(in_pos_files yes)
+		(in_pos_files no)
 		(dnp no)
 		(uuid "9c7e781e-5a6c-4585-8b21-04d24bdd4763")
 		(property "Reference" "SW4"
@@ -14012,9 +14023,9 @@
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
-		(in_pos_files yes)
+		(in_pos_files no)
 		(dnp no)
 		(uuid "bffd184c-9ef6-4948-9530-2a6748a6fabc")
 		(property "Reference" "SW6"

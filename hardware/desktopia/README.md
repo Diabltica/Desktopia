@@ -282,8 +282,9 @@ What the price depends on (JLCONE quotes, November 28, 2026):
   (€3.30 per order) and about €0.015 per joint.
 - Economic PCBA places nothing smaller than 0402 (Standard PCBA: about €20 more for 2 boards), and the OSP finish
   (JLCONE's default in November 2026) greys it out: choose HASL with lead. Nitrogen reflow (€0.79) is forced in Economic,
-  and the X-ray inspection (€3.01) comes with the QFN / LGA parts. The PCB keeps its special offer (€1.83 for 5) with
-  Economic PCBA.
+  and the X-ray inspection (€3.01) comes with the leadless parts other than the RP2040 (U3 LGA, U7 VQFN): the HMI
+  board, whose only leadless part is its RP2040, has none. The PCB keeps its special offer (€1.83 for 5) with Economic
+  PCBA.
 
 So the board is built in three ways:
 
@@ -300,7 +301,8 @@ So the board is built in three ways:
   quantities of LCSC make the others dearer there than at JLCPCB: assembling all seven costs €2.65 more than J4 alone.
 - **You solder** (excluded from the BOM and the position files: *Exclude from BOM* and *Exclude from position files*
   on the symbol and the footprint, which the Fabrication Toolkit reads): L1, F1, U1, R23 / R27 / R28, C6, Q5, Q6-Q9.
-  Each is an Extended part number whose loading fee costs more than the part itself. Buy them at LCSC with the plugs:
+  Each is an Extended part number whose loading fee costs more than the part itself. Buy them at LCSC with the plugs
+  (all in the common cart of both boards, [`../lcsc_cart.csv`](../lcsc_cart.csv), for LCSC's *BOM Tool*):
 
 | Ref | LCSC | Part | Buy | Price (Nov. 2026) |
 |---|---|---|---|---|

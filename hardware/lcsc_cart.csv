@@ -1,0 +1,11 @@
+﻿LCSC Part Number,Quantity,Board,Designator,Comment
+C354634,10,motherboard,L1,22uH CKCS6045-22uH/M (hand-soldered)
+C720075,20,motherboard,F1,PTC 500mA JK-nSMD050-30 (hand-soldered)
+C347374,50,motherboard,U1,XC6206P282MR 2.8V LDO (hand-soldered)
+C154685,10,motherboard,"R23, R27, R28",2mR 3W LR2512-23R002F4 (hand-soldered)
+C970687,10,motherboard,C6,100uF 50V RVT1H101M0810 (hand-soldered)
+C536914,2,motherboard,Q5,IPD90P04P4-05 (hand-soldered)
+C148250,8,motherboard,"Q6, Q7, Q8, Q9",BSC028N06NS (hand-soldered)
+C440880,5,motherboard,"plug of J1, J5",KF2EDGK-5.08-2P (4 needed)
+C440890,5,motherboard,plug of J7,KF2EDGK-7.62-2P (2 needed)
+C8413,5,motherboard,plug of J6,WJ15EDGK-3.81-03P-14-00A (2 needed)
