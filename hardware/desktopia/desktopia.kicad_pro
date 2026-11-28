@@ -896,19 +896,27 @@
       },
       {
         "netclass": "Current_sense",
-        "pattern": "Net-(U7-SP)"
+        "pattern": "/S_P"
       },
       {
         "netclass": "Current_sense",
-        "pattern": "Net-(U7-SN)"
+        "pattern": "/S_N"
       },
       {
         "netclass": "Buses",
-        "pattern": "/SCL"
+        "pattern": "/TOF_SCL"
       },
       {
         "netclass": "Buses",
-        "pattern": "/SDA"
+        "pattern": "/INA_SCL"
+      },
+      {
+        "netclass": "Buses",
+        "pattern": "/TOF_SDA"
+      },
+      {
+        "netclass": "Buses",
+        "pattern": "/INA_SDA"
       },
       {
         "netclass": "Buses",
@@ -949,18 +957,6 @@
       {
         "netclass": "Buses",
         "pattern": "/D_-"
-      },
-      {
-        "netclass": "Buses",
-        "pattern": "Net-(U4-GPIO17)"
-      },
-      {
-        "netclass": "Buses",
-        "pattern": "Net-(U4-GPIO18)"
-      },
-      {
-        "netclass": "Buses",
-        "pattern": "Net-(U4-GPIO28*)"
       },
       {
         "netclass": "Buses",
