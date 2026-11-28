@@ -288,9 +288,8 @@ What the price depends on (JLCONE quotes, November 28, 2026):
 
 So the board is built in three ways:
 
-- **JLCPCB places** (SMD): everything else. Five Extended part numbers are left, none of which has a Basic or Preferred
-  substitute: J3 (USB-C, C2988369), U3 (VL53L1CB, C2970716), U4 (RP2040, C2040), U6 (INA226, C49851), U7 (DRV8701ERGER,
-  C90964). Preferred: D2 (TVS), D3 (Zener), Q1 / Q2 / Q3 / Q4 (BSS138). Everything else is Basic: the H-bridge passives
+- **JLCPCB places** (SMD): everything else. Four Extended part numbers are left, none of which has a Basic or Preferred
+  substitute: U3 (VL53L1CB, C2970716), U4 (RP2040, C2040), U6 (INA226, C49851), U7 (DRV8701ERGER, C90964). Preferred: D2 (TVS), D3 (Zener), Q1 / Q2 / Q3 / Q4 (BSS138). Everything else is Basic: the H-bridge passives
   reuse part numbers already on the board (C26 / C27 = C5, C28 / C30 = C21, C29 / C31 / C32 = C1, R29 = R24 (10k),
   R30 = R7 (3.3k)), and the MCU block those of the HMI board: U8 W25Q128JVSIQ (C97521, the only Basic flash: an
   Extended 2 MB one costs more with its fee), U9 XC6206P332MR (C5446), Y1 12 MHz (C9002), C15 / C16 33 pF (C1562),
@@ -300,8 +299,8 @@ So the board is built in three ways:
   (C8406), J7 (C441246), C24 / C25 (Rubycon 50ZLJ470M10X20, C2902875). J4 is not sold by LCSC, and the minimum
   quantities of LCSC make the others dearer there than at JLCPCB: assembling all seven costs €2.65 more than J4 alone.
 - **You solder** (excluded from the BOM and the position files: *Exclude from BOM* and *Exclude from position files*
-  on the symbol and the footprint, which the Fabrication Toolkit reads): L1, F1, U1, R23 / R27 / R28, C6, Q5, Q6-Q9.
-  Each is an Extended part number whose loading fee costs more than the part itself. Buy them at LCSC with the plugs
+  on the symbol and the footprint, which the Fabrication Toolkit reads): L1, F1, U1, R23 / R27 / R28, C6, Q5, Q6-Q9,
+  J3 (USB-C). Each is an Extended part number whose loading fee costs more than the part itself. Buy them at LCSC with the plugs
   (all in the common cart of both boards, [`../lcsc_cart.csv`](../lcsc_cart.csv), for LCSC's *BOM Tool*):
 
 | Ref | LCSC | Part | Buy | Price (Nov. 2026) |
@@ -313,6 +312,7 @@ So the board is built in three ways:
 | C6 | C970687 | RVT1H101M0810 (100 µF 50 V, 8 × 10 mm) | 10 | $0.81 |
 | Q5 | C536914 | IPD90P04P4-05 (TO-252) | 2 | $3.89 |
 | Q6-Q9 | C148250 | BSC028N06NS (SuperSO8) | 8 | $8.35 |
+| J3 (and J1 of the HMI board) | C2988369 | G-Switch GT-USB-7010ASV (USB-C, 16 pins) | 5 | $0.42 |
 | plugs of J1 / J5 | C440880 | KF2EDGK-5.08-2P | 5 | $0.79 |
 | plug of J7 | C440890 | KF2EDGK-7.62-2P | 5 | $1.21 |
 | plug of J6 | C8413 | WJ15EDGK-3.81-03P-14-00A | 5 | $1.34 |
@@ -321,6 +321,8 @@ So the board is built in three ways:
   body and ratings (1.8 A rated); the footprint stays `L_Sunlord_SWPA6045S`: check its terminals against it before
   soldering.
 - Q6-Q9 solder their drain under the body: hot air or a hot plate. Q5 needs a large tip for its tab.
+- J3: the two plastic pegs locate it; solder the four through-hole shell tabs first, then the row of 16 SMD pads
+  (0.5 mm pitch in the middle) with flux and a fine tip, and check D+ / D- / CC for bridges with a magnifier.
 - Stock (November 28, 2026): Q6-Q9 256 at LCSC (685 at JLCPCB), Q5 117, U3 585 and U7 1895 at JLCPCB, J7's header
   2191. Any −40 V P-MOSFET in TO-252 with R<sub>DS(on)</sub> ≤ 10 mΩ at −10 V fits Q5. Any 60 V N-MOSFET in
   SuperSO8 / 5 × 6 with R<sub>DS(on)</sub> ≤ 3 mΩ at 10 V and Q<sub>g</sub> ≤ 60 nC fits Q6-Q9 (onsemi NTMFS5C628NL,
@@ -341,10 +343,13 @@ $1 = €0.9135, plugs aside, LCSC shipping excluded):
 | 2 | 1 + C6, Q5 | 1.83 | 8.95 | 30.56 | 16.94 (6) | 1.23 | – | 3.80 | **63.29** | 74.76 + J4 elsewhere |
 | 3 | 2 + Q6-Q9 | 1.83 | 8.95 | 22.97 | 14.11 (5) | 1.12 | – | 3.80 | **52.77** | 71.87 + J4 elsewhere |
 | 4 | 3, but J4 assembled | 1.83 | 8.95 | 23.16 | 14.11 (5) | 1.12 | 3.30 + 0.18 | 3.80 | **56.44** | 75.54 |
-| 5 | 3, but all THT assembled (**chosen**) | 1.83 | 8.95 | 25.32 | 14.11 (5) | 1.12 | 3.30 + 0.68 | 3.80 | **59.09** | **74.78** |
+| 5 | 3, but all THT assembled | 1.83 | 8.95 | 25.32 | 14.11 (5) | 1.12 | 3.30 + 0.68 | 3.80 | **59.09** | 74.78 |
+| 6 | 5 + J3 (**chosen**) | 1.83 | 8.95 | 25.02 | 11.29 (4) | 1.02 | 3.30 + 0.68 | 3.80 | **55.87** | **71.95** |
 
-Quote 5 was checked again with the files of `production/`: €59.09. Option 3 only wins if you already have a jack for J4
-that fits the Amphenol 54601 footprint (LCSC's HX 5513 does not: 1.02 mm pitch). Cheapest shipping: Global Standard
+Quotes 5 and 6 were checked with the files of `production/`. Option 3 (with J3 out too) only wins if you already have
+a jack for J4 that fits the Amphenol 54601 footprint (LCSC's HX 5513 does not: 1.02 mm pitch). Each board is its own
+PCBA order: ordered together with the HMI board, the RP2040 loading fee, the setup and the stencil are still paid once
+per board; only the shipping is shared. Cheapest shipping: Global Standard
 Direct Line (10-12 working days), €1.37 on offer (€7.13) for the bare PCBs in the estimate; the cart prices the 0.8 kg
 parcel. JLCPCB adds French VAT (20 %) at checkout. No coupon of the account applied in November 2026: the $20 PCBA
 coupon needs €91.35 of order, and the $10 PCB and PCBA "EasyEDA design" coupons only take orders made from EasyEDA.
@@ -407,8 +412,9 @@ C41 (VREG_VOUT) C52923 (1 µF). JLCPCB's Economic PCBA does not place 0201, Stan
 capacitor. The board was never laid out in 0201: the PCB kept the 0402 footprints.
 
 The cost pass of November 28, 2026 (JLCONE quotes above): from 15 Extended part numbers (17 with the 0201
-capacitors) to 5 loading fees, and from about €73 to €59 for the JLCPCB order of 2 boards. The 0402 decoupling keeps Economic PCBA. You solder the SMD parts whose part number is
-Extended and has no Basic or Preferred substitute: L1, F1, U1, the shunts, C6, Q5 and Q6-Q9. JLCPCB solders the
+capacitors) to 4 loading fees, and from about €73 to €56 for the JLCPCB order of 2 boards. The 0402 decoupling keeps
+Economic PCBA. You solder the SMD parts whose part number is Extended and has no Basic or Preferred substitute: L1, F1,
+U1, the shunts, C6, Q5, Q6-Q9 and J3. JLCPCB solders the
 through-hole parts, which have no loading fee. L1 became the Cenker CKCS6045-22uH/M (C354634), which LCSC sells.
 
 ## PCB rules

@@ -5369,7 +5369,7 @@
 		)
 		(uuid "96ff9fdd-6a20-49ab-ad1d-6864abc3d8cb")
 	)
-	(text "Assembly (README): JLCPCB Economic PCBA, bottom side, 0402 minimum.\nSW2-SW6 (Kailh Choc hot-swap sockets) are out of the BOM and position files:\nout of stock at JLCPCB and LCSC, solder them by hand."
+	(text "Assembly (README): JLCPCB Economic PCBA, bottom side, 0402 minimum.\nHand-soldered, out of the BOM and position files: J1 (USB-C) and SW2-SW6\n(Kailh Choc hot-swap sockets, out of stock at JLCPCB and LCSC)."
 		(exclude_from_sim no)
 		(at 16.51 220.98 0)
 		(effects
@@ -16324,9 +16324,9 @@
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
-		(in_pos_files yes)
+		(in_pos_files no)
 		(dnp no)
 		(uuid "eacba53e-89e8-4e70-a8ba-9ce3ef2d9a13")
 		(property "Reference" "J1"

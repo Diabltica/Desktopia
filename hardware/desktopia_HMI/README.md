@@ -126,8 +126,10 @@ Order: 5 PCBs (2 layers, 139.7 × 33.27 mm, 1.6 mm, HASL with lead, green), **Ec
 greys out Economic PCBA. Every assembled part has its LCSC number in the `LCSC` and `jlcpcb PartNumber` fields. The
 production files come from the Fabrication Toolkit plugin (`production/`: Gerber zip, `bom.csv`, `positions.csv`).
 
-- Two Extended part numbers, with no Basic or Preferred substitute: U3 (RP2040, C2040) and J1 (USB-C). Everything else
-  is Basic, and the MCU block uses the motherboard's part numbers.
+- One Extended part number is left, U3 (RP2040, C2040), with no Basic or Preferred substitute. Everything else is
+  Basic, and the MCU block uses the motherboard's part numbers.
+- **J1** (USB-C, Extended) is excluded from the BOM and the position files: you solder it, as J3 on the motherboard
+  (see the hand-soldering notes in its README). Its loading fee costs more than the part.
 - Y1 is the Basic X322512MSB4SI (C9002). It is specified for a 20 pF load, hence the 33 pF capacitors C8 / C10.
 - J1 is the G-Switch GT-USB-7010ASV (C2988369, $0.09). It replaces the HRO TYPE-C-31-M-12 ($0.19); the pins are the
   same, the footprint is KiCad's `USB_C_Receptacle_G-Switch_GT-USB-7010ASV`.
@@ -143,14 +145,15 @@ The JLCONE quotes (November 28, 2026, in euros, 2 boards, VAT and shipping exclu
 
 | # | JLCPCB does not assemble | PCB (engineering + board) | Setup + stencil | Components | Extended fee | SMT | N₂ | JLCPCB |
 |---|---|---|---|---|---|---|---|---|
-| 1 | SW2-SW6 (**chosen**) | 5.76 (3.65 + 2.10) | 8.95 | 7.34 | 5.65 (2) | 0.52 | 0.79 | **28.99** |
-| 2 | 1 + J1 | 5.76 | 8.95 | 7.03 | 2.82 (1) | 0.42 | 0.79 | **25.76** |
+| 1 | SW2-SW6 | 5.76 (3.65 + 2.10) | 8.95 | 7.34 | 5.65 (2) | 0.52 | 0.79 | **28.99** |
+| 2 | 1 + J1 (**chosen**) | 5.76 | 8.95 | 7.03 | 2.82 (1) | 0.42 | 0.79 | **25.76** |
 
 - The board is longer than 100 mm, so it misses the PCB special offer of the motherboard (€1.83 for 5) and pays the
   €3.65 engineering fee. It needs no X-ray inspection (the motherboard's €3.01 comes with its other leadless parts).
-- Option 2 saves €2.84 once J1 is bought at LCSC ($0.42 for 5), but a 16-pin USB-C at 0.5 mm pitch is hard to solder
-  by hand: not chosen.
-- Order both boards together: one parcel, one shipping fee. The LCSC parts of both boards are in the common cart
+- Option 2 saves €2.84 once J1 is bought at LCSC (5 for both boards' USB-C: $0.42). Quote 2 was checked with the
+  files of `production/`.
+- Order both boards together: one parcel, one shipping fee. Each board stays its own PCBA order, so the RP2040 loading
+  fee, the setup and the stencil are paid once per board. The LCSC parts of both boards are in the common cart
   [`../lcsc_cart.csv`](../lcsc_cart.csv) (upload it at LCSC's *BOM Tool*).
 - 3D model of J1: the LCSC one (`kicad_library/pcb/JLCImport.3dshapes`), as on the motherboard. R8 has its model but
   is marked DNP, so the 3D view hides it.

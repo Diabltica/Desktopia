@@ -30266,9 +30266,9 @@
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
-		(in_pos_files yes)
+		(in_pos_files no)
 		(dnp no)
 		(uuid "88093240-dfcd-4aae-ac1f-1a9ea69c0f2d")
 		(property "Reference" "J3"
@@ -37009,7 +37009,7 @@
 		)
 		(uuid "2f2c1816-f27a-4d51-8bc7-fc37768a2cab")
 	)
-	(text "Assembly (README): JLCPCB Economic PCBA, top side, 0402 minimum (no 0201).\nHand-soldered, out of the BOM and position files: L1, F1, U1, R23 / R27 / R28,\nC6, Q5, Q6-Q9. JLCPCB solders the through-hole parts by hand (no loading fee)."
+	(text "Assembly (README): JLCPCB Economic PCBA, top side, 0402 minimum (no 0201).\nHand-soldered, out of the BOM and position files: L1, F1, U1, R23 / R27 / R28,\nC6, Q5, Q6-Q9, J3. JLCPCB solders the through-hole parts by hand (no loading fee)."
 		(exclude_from_sim no)
 		(at 16.51 166.37 0)
 		(effects
